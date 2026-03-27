@@ -9,6 +9,9 @@ class RunTaskRequest(BaseModel):
     """Request model for /run-task endpoint."""
     task_name: str = Field(..., description="Name of the task to execute")
     module_name: Optional[str] = Field(None, description="Game module name (uses default if not provided)")
+    user_id: Optional[str] = Field(None, description="Player id for progression flow")
+    username: Optional[str] = Field(None, description="Player username (auto-generates user_id if not provided)")
+    instructions: Optional[str] = Field(None, description="Player instruction text for this task")
 
 
 class RunTaskResponse(BaseModel):
@@ -71,3 +74,22 @@ class AssetDetailResponse(BaseModel):
     asset_type: str = Field(..., description="Type of asset")
     payload: dict = Field(..., description="Asset payload data")
     created_at: str = Field(..., description="Creation timestamp in ISO format")
+
+
+class RegisterUserRequest(BaseModel):
+    """Request model for user registration."""
+    username: str = Field(..., min_length=3, max_length=50, description="Username (3-50 characters)")
+
+
+class RegisterUserResponse(BaseModel):
+    """Response model for user registration."""
+    user_id: str = Field(..., description="Generated unique user ID")
+    username: str = Field(..., description="Registered username")
+    wallet_balance: float = Field(..., description="Initial wallet balance")
+    created_at: str = Field(..., description="Registration timestamp")
+
+
+class CheckUsernameResponse(BaseModel):
+    """Response model for username availability check."""
+    username: str = Field(..., description="Checked username")
+    available: bool = Field(..., description="True if username is available")

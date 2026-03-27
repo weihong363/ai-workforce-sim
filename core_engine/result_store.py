@@ -64,6 +64,7 @@ def init_db(database_url: str) -> None:
                 task_name TEXT NOT NULL,
                 module_name TEXT NOT NULL,
                 final_score REAL,
+                total_cost REAL,
                 status TEXT NOT NULL,
                 error_message TEXT,
                 created_at TEXT NOT NULL,
@@ -77,6 +78,8 @@ def init_db(database_url: str) -> None:
         
         if not _column_exists(conn, "runs", "updated_at"):
             cursor.execute("ALTER TABLE runs ADD COLUMN updated_at TEXT")
+        if not _column_exists(conn, "runs", "total_cost"):
+            cursor.execute("ALTER TABLE runs ADD COLUMN total_cost REAL")
 
         # Create workflow_steps table
         cursor.execute("""
@@ -90,6 +93,7 @@ def init_db(database_url: str) -> None:
                 provider TEXT,
                 model TEXT,
                 token_usage_json TEXT,
+                cost REAL,
                 cache_hit INTEGER NOT NULL DEFAULT 0,
                 created_at TEXT NOT NULL,
                 FOREIGN KEY(run_id) REFERENCES runs(id)
@@ -97,10 +101,12 @@ def init_db(database_url: str) -> None:
         """)
         
         # Add migration columns
-        for column in ["provider", "model", "token_usage_json", "cache_hit"]:
+        for column in ["provider", "model", "token_usage_json", "cache_hit", "cost"]:
             if not _column_exists(conn, "workflow_steps", column):
                 if column == "cache_hit":
                     cursor.execute(f"ALTER TABLE workflow_steps ADD COLUMN {column} INTEGER NOT NULL DEFAULT 0")
+                elif column == "cost":
+                    cursor.execute(f"ALTER TABLE workflow_steps ADD COLUMN {column} REAL")
                 else:
                     cursor.execute(f"ALTER TABLE workflow_steps ADD COLUMN {column} TEXT")
         if not _column_exists(conn, "workflow_steps", "effective_attributes_json"):
@@ -136,9 +142,9 @@ def create_run(task_name: str, module_name: str, database_url: str) -> str:
     cursor = conn.cursor(cursor_factory=RealDictCursor)
     try:
         cursor.execute("""
-            INSERT INTO runs (id, task_name, module_name, final_score, status, error_message, created_at, updated_at)
-            VALUES (%s, %s, %s, %s, %s, %s, %s, %s)
-        """, (run_id, task_name, module_name, None, "pending", None, now, now))
+            INSERT INTO runs (id, task_name, module_name, final_score, total_cost, status, error_message, created_at, updated_at)
+            VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s)
+        """, (run_id, task_name, module_name, None, 0.0, "pending", None, now, now))
         conn.commit()
         return run_id
     finally:
@@ -151,6 +157,7 @@ def update_run_status(
     status: str,
     database_url: str,
     final_score: Optional[float] = None,
+    total_cost: Optional[float] = None,
     error_message: Optional[str] = None,
 ) -> None:
     now = _utc_now_iso()
@@ -159,9 +166,13 @@ def update_run_status(
     try:
         cursor.execute("""
             UPDATE runs
-            SET status = %s, final_score = COALESCE(%s, final_score), error_message = %s, updated_at = %s
+            SET status = %s,
+                final_score = COALESCE(%s, final_score),
+                total_cost = COALESCE(%s, total_cost),
+                error_message = %s,
+                updated_at = %s
             WHERE id = %s
-        """, (status, final_score, error_message, now, run_id))
+        """, (status, final_score, total_cost, error_message, now, run_id))
         conn.commit()
     finally:
         cursor.close()
@@ -177,10 +188,10 @@ def persist_workflow_steps(run_id: str, workflow_results: List[Dict[str, object]
             cursor.execute("""
                 INSERT INTO workflow_steps (
                     id, run_id, step_index, agent_name, prompt, output,
-                    provider, model, token_usage_json, cache_hit,
+                    provider, model, token_usage_json, cost, cache_hit,
                     effective_attributes_json, affinity_before, affinity_after, created_at
                 )
-                VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s)
+                VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s)
             """, (
                 uuid.uuid4().hex,
                 run_id,
@@ -191,6 +202,7 @@ def persist_workflow_steps(run_id: str, workflow_results: List[Dict[str, object]
                 step.get("provider", ""),
                 step.get("model", ""),
                 json.dumps(step.get("token_usage", {})),
+                step.get("cost", 0.0),
                 1 if bool(step.get("cache_hit", False)) else 0,
                 json.dumps(step.get("effective_attributes", {})),
                 step.get("affinity_before"),
@@ -232,7 +244,7 @@ def get_run(run_id: str, database_url: str) -> Optional[Dict[str, object]]:
     cursor = conn.cursor(cursor_factory=RealDictCursor)
     try:
         cursor.execute("""
-            SELECT id, task_name, module_name, final_score, status, error_message, created_at, updated_at
+            SELECT id, task_name, module_name, final_score, total_cost, status, error_message, created_at, updated_at
             FROM runs WHERE id = %s
         """, (run_id,))
         run_row = cursor.fetchone()
@@ -240,7 +252,7 @@ def get_run(run_id: str, database_url: str) -> Optional[Dict[str, object]]:
             return None
 
         cursor.execute("""
-            SELECT step_index, agent_name, prompt, output, provider, model, token_usage_json, cache_hit,
+            SELECT step_index, agent_name, prompt, output, provider, model, token_usage_json, cost, cache_hit,
                    effective_attributes_json, affinity_before, affinity_after, created_at
             FROM workflow_steps
             WHERE run_id = %s
@@ -262,6 +274,7 @@ def get_run(run_id: str, database_url: str) -> Optional[Dict[str, object]]:
                 "provider": row["provider"],
                 "model": row["model"],
                 "token_usage": json.loads(row["token_usage_json"] or "{}"),
+                "cost": float(row["cost"] or 0.0),
                 "cache_hit": bool(row["cache_hit"]),
                 "effective_attributes": json.loads(row["effective_attributes_json"] or "{}"),
                 "affinity_before": row["affinity_before"],
@@ -284,6 +297,7 @@ def get_run(run_id: str, database_url: str) -> Optional[Dict[str, object]]:
             "task_name": run_row["task_name"],
             "module_name": run_row["module_name"],
             "final_score": run_row["final_score"],
+            "total_cost": float(run_row["total_cost"] or 0.0),
             "status": run_row["status"],
             "error_message": run_row["error_message"],
             "created_at": run_row["created_at"],

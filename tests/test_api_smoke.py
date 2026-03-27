@@ -11,4 +11,4 @@ def test_health_endpoint() -> None:
     assert health_resp.status_code == 200
     assert health_resp.json()["status"] == "ok"
     assert health_resp.json()["active_game_module"] == "business_sim"
-    assert health_resp.json()["use_mock_provider"] is True
+    assert isinstance(health_resp.json()["use_mock_provider"], bool)

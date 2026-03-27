@@ -23,6 +23,9 @@ class Settings:
     enable_agent_cache: bool
     enable_evaluation_cache: bool
     llm_cost_per_1k_tokens_usd: float
+    task_result_cache_ttl_seconds: int
+    task_cache_delay_min_ms: int
+    task_cache_delay_max_ms: int
 
     provider_connections: Dict[str, Dict[str, object]]
     provider_for_purpose: Dict[str, str]
@@ -55,6 +58,18 @@ class Settings:
 
     def get_fallback_model(self, purpose: str) -> Optional[str]:
         return self.fallback_model_for_purpose.get(purpose, self.fallback_model_for_purpose.get("task"))
+
+    def get_model_for_role(self, purpose: str, agent_level: str) -> str:
+        level = (agent_level or "").lower()
+        if purpose == "evaluation":
+            return self.model_for_purpose.get("evaluation", self.get_model("task"))
+        if level == "junior":
+            return self.model_for_purpose.get("task_junior", self.get_model("task"))
+        if level == "mid":
+            return self.model_for_purpose.get("task_mid", self.get_model("task"))
+        if level == "senior":
+            return self.model_for_purpose.get("task_senior", self.get_model("task"))
+        return self.get_model("task")
 
 
 DEFAULT_PROVIDER_CONNECTIONS = {
@@ -126,6 +141,10 @@ def get_settings() -> Settings:
 
     model_for_task = os.getenv("MODEL_FOR_TASK", os.getenv("LLM_MODEL", "mvp-default"))
     model_for_evaluation = os.getenv("MODEL_FOR_EVALUATION", model_for_task)
+    model_task_junior = os.getenv("MODEL_TASK_JUNIOR", model_for_task)
+    model_task_mid = os.getenv("MODEL_TASK_MID", model_for_task)
+    model_task_senior = os.getenv("MODEL_TASK_SENIOR", model_for_task)
+    model_evaluator = os.getenv("MODEL_EVALUATOR", model_for_evaluation)
     fallback_model = os.getenv("FALLBACK_MODEL") or os.getenv("LLM_FALLBACK_MODEL")
 
     return Settings(
@@ -137,6 +156,9 @@ def get_settings() -> Settings:
         enable_agent_cache=_to_bool(os.getenv("ENABLE_AGENT_CACHE"), default=True),
         enable_evaluation_cache=_to_bool(os.getenv("ENABLE_EVALUATION_CACHE"), default=True),
         llm_cost_per_1k_tokens_usd=_to_float(os.getenv("LLM_COST_PER_1K_TOKENS_USD"), 0.0),
+        task_result_cache_ttl_seconds=_to_int(os.getenv("TASK_RESULT_CACHE_TTL_SECONDS"), 600),
+        task_cache_delay_min_ms=_to_int(os.getenv("TASK_CACHE_DELAY_MIN_MS"), 60),
+        task_cache_delay_max_ms=_to_int(os.getenv("TASK_CACHE_DELAY_MAX_MS"), 180),
         provider_connections={k: dict(v) for k, v in connections.items() if isinstance(v, dict)},
         provider_for_purpose={
             "task": provider_for_task,
@@ -148,7 +170,10 @@ def get_settings() -> Settings:
         },
         model_for_purpose={
             "task": model_for_task,
-            "evaluation": model_for_evaluation,
+            "task_junior": model_task_junior,
+            "task_mid": model_task_mid,
+            "task_senior": model_task_senior,
+            "evaluation": model_evaluator,
         },
         fallback_model_for_purpose={
             "task": fallback_model,

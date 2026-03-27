@@ -21,6 +21,7 @@ class InMemoryCache:
         self._agent_cache: Dict[str, Dict[str, object]] = {}
         self._evaluation_cache: Dict[str, Dict[str, object]] = {}
         self._temp_results: Dict[str, Dict[str, object]] = {}
+        self._task_results: Dict[str, Dict[str, object]] = {}
 
     @staticmethod
     def _hash(payload: Dict[str, object]) -> str:
@@ -64,6 +65,21 @@ class InMemoryCache:
     def set_evaluation(self, key: str, value: Dict[str, object]) -> None:
         with self._lock:
             self._evaluation_cache[key] = value
+
+    def set_task_result(self, key: str, value: Dict[str, object], ttl_seconds: int = 600) -> None:
+        expires_at = time.time() + max(1, ttl_seconds)
+        with self._lock:
+            self._task_results[key] = {"value": value, "expires_at": expires_at}
+
+    def get_task_result(self, key: str) -> Optional[Dict[str, object]]:
+        with self._lock:
+            wrapper = self._task_results.get(key)
+            if wrapper is None:
+                return None
+            if float(wrapper.get("expires_at", 0)) < time.time():
+                self._task_results.pop(key, None)
+                return None
+            return wrapper.get("value")  # type: ignore[return-value]
 
     def set_temp_result(self, key: str, value: Dict[str, object], ttl_seconds: int = 60) -> None:
         expires_at = time.time() + max(1, ttl_seconds)
@@ -121,6 +137,13 @@ class RedisCache:
 
     def set_evaluation(self, key: str, value: Dict[str, object]) -> None:
         self.redis_client.set(key, json.dumps(value))
+
+    def set_task_result(self, key: str, value: Dict[str, object], ttl_seconds: int = 600) -> None:
+        self.redis_client.setex(f"task:result:{key}", max(1, ttl_seconds), json.dumps(value))
+
+    def get_task_result(self, key: str) -> Optional[Dict[str, object]]:
+        value = self.redis_client.get(f"task:result:{key}")
+        return json.loads(value) if value else None
 
     def set_temp_result(self, key: str, value: Dict[str, object], ttl_seconds: int = 60) -> None:
         self.redis_client.setex(f"temp:result:{key}", max(1, ttl_seconds), json.dumps(value))

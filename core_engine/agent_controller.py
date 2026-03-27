@@ -7,6 +7,7 @@ import time
 import uuid
 from typing import Dict, Optional
 
+import structlog
 from core_engine.agent_behavior import apply_behavior_to_output, compute_effective_attributes
 from core_engine.cache import get_cache
 from core_engine.config import Settings
@@ -31,6 +32,7 @@ class AgentController:
         enable_agent_cache: bool = True,
         logger: object = None,
     ) -> None:
+        self.settings = settings
         self.purpose = purpose
         self.model_name = settings.get_model(purpose)
         self.fallback_model_name = settings.get_fallback_model(purpose) or self.model_name
@@ -82,10 +84,21 @@ class AgentController:
             return (0.02, 0.08)
         return (0.04, 0.12)
 
-    def _call_provider_with_retry(self, prompt: str) -> Dict[str, object]:
+    @staticmethod
+    def _estimate_tokens(text: str) -> int:
+        return max(1, len(str(text).split()))
+
+    @staticmethod
+    def _truncate_to_token_limit(text: str, max_tokens: int) -> str:
+        words = str(text).split()
+        if len(words) <= max_tokens:
+            return str(text)
+        return " ".join(words[:max_tokens]) + " ...[TRUNCATED]"
+
+    def _call_provider_with_retry(self, prompt: str, model_name: str) -> Dict[str, object]:
         return self._call_single_provider_with_retry(
             provider=self.provider,
-            model_name=self.model_name,
+            model_name=model_name,
             prompt=prompt,
             retry_attempts=self.retry_attempts,
         )
@@ -149,7 +162,7 @@ class AgentController:
         affinity_before = effective["affinity"]
         prompt = self.build_prompt(agent_name, task_input, previous_output)
         provider_name = getattr(self.provider, "provider_name", "unknown")
-        model_name = self.model_name
+        model_name = self.settings.get_model_for_role(self.purpose, str(profile.get("level", "mid")))
         cache = get_cache()
         behavior_signature = json.dumps(effective, sort_keys=True)
 
@@ -191,7 +204,7 @@ class AgentController:
                 )
 
         try:
-            response = self._call_provider_with_retry(prompt)
+            response = self._call_provider_with_retry(prompt, model_name=model_name)
         except ExecutionError as primary_error:
             if self.fallback_provider_name != self.provider_name or self.fallback_model_name != self.model_name:
                 if self.logger is not None:
@@ -221,14 +234,33 @@ class AgentController:
             "token_usage": response.get("token_usage", {}),
         }
 
+        # Enforce per-agent output token limit.
+        max_output_tokens = int(profile.get("max_output_tokens", 0) or 0)
+        budget_action = None
+        if max_output_tokens > 0:
+            current_tokens = self._estimate_tokens(record["output"])
+            if current_tokens > max_output_tokens:
+                record["output"] = self._truncate_to_token_limit(record["output"], max_output_tokens)
+                record["token_usage"]["completion_tokens"] = self._estimate_tokens(record["output"])
+                record["token_usage"]["total_tokens"] = int(record["token_usage"].get("prompt_tokens", 0)) + int(
+                    record["token_usage"]["completion_tokens"]
+                )
+                budget_action = "truncated_output"
+
         # Store result temporarily in cache, then return after a randomized delay.
         # Junior agents use a wider/slower delay band than senior agents.
         temp_key = uuid.uuid4().hex
         cache.set_temp_result(temp_key, record, ttl_seconds=60)
         delay_min, delay_max = self._result_delay_range_seconds(profile)
         wait_seconds = random.uniform(delay_min, delay_max)
-        time.sleep(wait_seconds)
+        artificial_delay_ms = int(profile.get("artificial_delay_ms", 0) or 0)
+        total_wait_seconds = wait_seconds + (artificial_delay_ms / 1000.0)
+        time.sleep(total_wait_seconds)
         delayed_record = cache.get_temp_result(temp_key) or record
+
+        step_tokens = int(delayed_record.get("token_usage", {}).get("total_tokens", 0))
+        cost_weight = float(profile.get("cost_weight", 1.0) or 1.0)
+        step_cost = round((step_tokens / 1000.0) * self.settings.llm_cost_per_1k_tokens_usd * cost_weight, 8)
 
         if self.enable_agent_cache:
             active_cache_key = cache.agent_key(
@@ -248,6 +280,8 @@ class AgentController:
             "token_usage": delayed_record["token_usage"],
             "effective_attributes": effective,
             "affinity_before": affinity_before,
-            "result_delay_seconds": round(wait_seconds, 4),
+            "result_delay_seconds": round(total_wait_seconds, 4),
+            "budget_action": budget_action,
+            "cost": step_cost,
             "cache_hit": False,
         }
