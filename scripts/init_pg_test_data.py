@@ -93,9 +93,10 @@ def _seed_demo_data(database_url: str) -> None:
             """
             INSERT INTO workflow_steps (
                 id, run_id, step_index, agent_name, prompt, output, provider, model,
-                token_usage_json, cost, cache_hit, effective_attributes_json,
+                prompt_tokens, completion_tokens, total_tokens, cost, cache_hit,
+                effective_effort, effective_obedience, effective_initiative, effective_affinity,
                 affinity_before, affinity_after, created_at
-            ) VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s)
+            ) VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s)
             """,
             (
                 "step_001_1",
@@ -106,10 +107,15 @@ def _seed_demo_data(database_url: str) -> None:
                 "Strong demand in tier-1 cities.",
                 "mock",
                 "mvp-default",
-                json.dumps(token_usage, ensure_ascii=True),
+                int(token_usage.get("prompt_tokens", 0)),
+                int(token_usage.get("completion_tokens", 0)),
+                int(token_usage.get("total_tokens", 0)),
                 0.001,
                 0,
-                json.dumps({}, ensure_ascii=True),
+                None,
+                None,
+                None,
+                None,
                 None,
                 None,
                 "2026-03-27T10:00:01+00:00",

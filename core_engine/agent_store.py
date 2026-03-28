@@ -2,7 +2,6 @@
 
 from __future__ import annotations
 
-import json
 from datetime import datetime, timezone
 from typing import Dict
 from urllib.parse import urlparse
@@ -40,7 +39,17 @@ def init_agent_db(database_url: str) -> None:
                 id TEXT PRIMARY KEY,
                 module_name TEXT NOT NULL,
                 agent_name TEXT NOT NULL,
-                profile_json JSONB NOT NULL,
+                description TEXT,
+                level TEXT NOT NULL,
+                skill REAL,
+                overtime_willingness REAL,
+                max_output_tokens INTEGER,
+                cost_weight REAL,
+                artificial_delay_ms INTEGER,
+                obedience REAL,
+                initiative REAL,
+                effort REAL,
+                affinity REAL,
                 source TEXT NOT NULL DEFAULT 'module_seed',
                 created_at TIMESTAMPTZ NOT NULL,
                 updated_at TIMESTAMPTZ NOT NULL,
@@ -85,10 +94,26 @@ def seed_module_agents(database_url: str, module_name: str, agents: Dict[str, Di
             payload = profile if isinstance(profile, dict) else {}
             cursor.execute(
                 """
-                INSERT INTO agents (id, module_name, agent_name, profile_json, source, created_at, updated_at)
-                VALUES (%s, %s, %s, %s::jsonb, %s, %s, %s)
+                INSERT INTO agents (
+                    id, module_name, agent_name, description, level,
+                    skill, overtime_willingness, max_output_tokens,
+                    cost_weight, artificial_delay_ms,
+                    obedience, initiative, effort, affinity,
+                    source, created_at, updated_at
+                )
+                VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s)
                 ON CONFLICT (module_name, agent_name) DO UPDATE SET
-                    profile_json = EXCLUDED.profile_json,
+                    description = EXCLUDED.description,
+                    level = EXCLUDED.level,
+                    skill = EXCLUDED.skill,
+                    overtime_willingness = EXCLUDED.overtime_willingness,
+                    max_output_tokens = EXCLUDED.max_output_tokens,
+                    cost_weight = EXCLUDED.cost_weight,
+                    artificial_delay_ms = EXCLUDED.artificial_delay_ms,
+                    obedience = EXCLUDED.obedience,
+                    initiative = EXCLUDED.initiative,
+                    effort = EXCLUDED.effort,
+                    affinity = EXCLUDED.affinity,
                     source = EXCLUDED.source,
                     updated_at = EXCLUDED.updated_at
                 """,
@@ -96,7 +121,17 @@ def seed_module_agents(database_url: str, module_name: str, agents: Dict[str, Di
                     generate_id("agt"),
                     module_name,
                     name,
-                    json.dumps(payload, ensure_ascii=True),
+                    str(payload.get("description") or "") or None,
+                    str(payload.get("level") or "junior"),
+                    float(payload.get("skill", 0.0) or 0.0),
+                    float(payload.get("overtime_willingness", 0.0) or 0.0),
+                    int(payload.get("max_output_tokens", 0) or 0),
+                    float(payload.get("cost_weight", 0.0) or 0.0),
+                    int(payload.get("artificial_delay_ms", 0) or 0),
+                    float(payload.get("obedience", 0.0) or 0.0),
+                    float(payload.get("initiative", 0.0) or 0.0),
+                    float(payload.get("effort", 0.0) or 0.0),
+                    float(payload.get("affinity", 0.0) or 0.0),
                     "module_seed",
                     now,
                     now,

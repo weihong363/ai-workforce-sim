@@ -44,6 +44,8 @@ def main() -> None:
         print("  - users")
         print("  - user_events")
         print("  - user_state_projection")
+        print("  - user_agents")
+        print("  - user_tutorial_progress")
         print("  - workflow_runs")
         print("  - workflow_steps")
         print("  - assets")

@@ -62,10 +62,15 @@ def init_db(database_url: str) -> None:
                 output TEXT NOT NULL,
                 provider TEXT,
                 model TEXT,
-                token_usage_json JSONB,
+                prompt_tokens INTEGER,
+                completion_tokens INTEGER,
+                total_tokens INTEGER,
                 cost REAL,
                 cache_hit INTEGER NOT NULL DEFAULT 0,
-                effective_attributes_json JSONB,
+                effective_effort REAL,
+                effective_obedience REAL,
+                effective_initiative REAL,
+                effective_affinity REAL,
                 affinity_before REAL,
                 affinity_after REAL,
                 created_at TIMESTAMPTZ NOT NULL
@@ -171,14 +176,19 @@ def persist_workflow_steps(run_id: str, workflow_results: List[Dict[str, object]
     cursor = conn.cursor(cursor_factory=RealDictCursor)
     try:
         for index, step in enumerate(workflow_results):
+            token_usage = step.get("token_usage") if isinstance(step.get("token_usage"), dict) else {}
+            effective = step.get("effective_attributes") if isinstance(step.get("effective_attributes"), dict) else {}
             cursor.execute(
                 """
                 INSERT INTO workflow_steps (
                     id, run_id, step_index, agent_name, prompt, output,
-                    provider, model, token_usage_json, cost, cache_hit,
-                    effective_attributes_json, affinity_before, affinity_after, created_at
+                    provider, model,
+                    prompt_tokens, completion_tokens, total_tokens,
+                    cost, cache_hit,
+                    effective_effort, effective_obedience, effective_initiative, effective_affinity,
+                    affinity_before, affinity_after, created_at
                 )
-                VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s::jsonb, %s, %s, %s::jsonb, %s, %s, %s)
+                VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s)
                 """,
                 (
                     generate_step_id(),
@@ -189,10 +199,15 @@ def persist_workflow_steps(run_id: str, workflow_results: List[Dict[str, object]
                     step.get("output", ""),
                     step.get("provider", ""),
                     step.get("model", ""),
-                    json.dumps(step.get("token_usage", {}), ensure_ascii=True),
-                    step.get("cost", 0.0),
+                    int(token_usage.get("prompt_tokens", 0) or 0),
+                    int(token_usage.get("completion_tokens", 0) or 0),
+                    int(token_usage.get("total_tokens", 0) or 0),
+                    float(step.get("cost", 0.0) or 0.0),
                     1 if bool(step.get("cache_hit", False)) else 0,
-                    json.dumps(step.get("effective_attributes", {}), ensure_ascii=True),
+                    float(effective.get("effort", 0.0) or 0.0) if effective.get("effort") is not None else None,
+                    float(effective.get("obedience", 0.0) or 0.0) if effective.get("obedience") is not None else None,
+                    float(effective.get("initiative", 0.0) or 0.0) if effective.get("initiative") is not None else None,
+                    float(effective.get("affinity", 0.0) or 0.0) if effective.get("affinity") is not None else None,
                     step.get("affinity_before"),
                     step.get("affinity_after"),
                     now,
@@ -250,8 +265,11 @@ def get_run(run_id: str, database_url: str) -> Optional[Dict[str, object]]:
 
         cursor.execute(
             """
-            SELECT step_index, agent_name, prompt, output, provider, model, token_usage_json, cost, cache_hit,
-                   effective_attributes_json, affinity_before, affinity_after, created_at
+            SELECT step_index, agent_name, prompt, output, provider, model,
+                   prompt_tokens, completion_tokens, total_tokens,
+                   cost, cache_hit,
+                   effective_effort, effective_obedience, effective_initiative, effective_affinity,
+                   affinity_before, affinity_after, created_at
             FROM workflow_steps
             WHERE run_id = %s
             ORDER BY step_index ASC
@@ -273,19 +291,6 @@ def get_run(run_id: str, database_url: str) -> Optional[Dict[str, object]]:
 
         steps: List[Dict[str, object]] = []
         for row in steps_rows:
-            token_usage = row.get("token_usage_json")
-            if not isinstance(token_usage, dict):
-                try:
-                    token_usage = json.loads(str(token_usage or "{}"))
-                except (json.JSONDecodeError, TypeError, ValueError):
-                    token_usage = {}
-            effective_attrs = row.get("effective_attributes_json")
-            if not isinstance(effective_attrs, dict):
-                try:
-                    effective_attrs = json.loads(str(effective_attrs or "{}"))
-                except (json.JSONDecodeError, TypeError, ValueError):
-                    effective_attrs = {}
-
             steps.append(
                 {
                     "step_index": row["step_index"],
@@ -294,10 +299,19 @@ def get_run(run_id: str, database_url: str) -> Optional[Dict[str, object]]:
                     "output": row["output"],
                     "provider": row["provider"],
                     "model": row["model"],
-                    "token_usage": token_usage,
+                    "token_usage": {
+                        "prompt_tokens": int(row.get("prompt_tokens") or 0),
+                        "completion_tokens": int(row.get("completion_tokens") or 0),
+                        "total_tokens": int(row.get("total_tokens") or 0),
+                    },
                     "cost": float(row["cost"] or 0.0),
                     "cache_hit": bool(row["cache_hit"]),
-                    "effective_attributes": effective_attrs,
+                    "effective_attributes": {
+                        "effort": row.get("effective_effort"),
+                        "obedience": row.get("effective_obedience"),
+                        "initiative": row.get("effective_initiative"),
+                        "affinity": row.get("effective_affinity"),
+                    },
                     "affinity_before": row["affinity_before"],
                     "affinity_after": row["affinity_after"],
                     "created_at": row["created_at"].isoformat() if hasattr(row["created_at"], "isoformat") else str(row["created_at"]),

@@ -1,4 +1,4 @@
-"""User persistence with event sourcing + projection tables."""
+"""User persistence with event sourcing + normalized projection tables."""
 
 from __future__ import annotations
 
@@ -14,7 +14,7 @@ from core_engine.config import get_settings
 from core_engine.id_generator import generate_id, normalize_id
 
 DEFAULT_STARTING_WALLET = 120.0
-DEFAULT_OWNED_AGENTS = [{"agent_id": "junior_001", "preset": "junior_worker", "level": "junior"}]
+DEFAULT_OWNED_AGENTS = [{"agent_id": "junior_001", "preset": "junior_worker", "level": "junior", "affinity": 0.5}]
 
 
 def _get_connection(database_url: str):
@@ -34,10 +34,6 @@ def _utc_now() -> datetime:
     return datetime.now(timezone.utc)
 
 
-def _utc_now_iso() -> str:
-    return _utc_now().isoformat()
-
-
 def _normalize_username(username: str) -> str:
     normalized = str(username or "").strip()
     if not normalized:
@@ -54,30 +50,6 @@ def _active_module_name(module_name: Optional[str]) -> str:
 
 def _list_or_default(value: object, default: List[object]) -> List[object]:
     return value if isinstance(value, list) else list(default)
-
-
-def _apply_event_to_projection(
-    projection: Dict[str, object],
-    event_type: str,
-    payload: Dict[str, object],
-) -> Dict[str, object]:
-    updated = dict(projection)
-    if event_type == "user_initialized":
-        updated["wallet_balance"] = float(payload.get("wallet_balance", updated.get("wallet_balance", DEFAULT_STARTING_WALLET)))
-        owned = payload.get("owned_agents", updated.get("owned_agents", DEFAULT_OWNED_AGENTS))
-        updated["owned_agents"] = owned if isinstance(owned, list) else list(DEFAULT_OWNED_AGENTS)
-        completed = payload.get("completed_tutorial_tasks", [])
-        updated["completed_tutorial_tasks"] = completed if isinstance(completed, list) else []
-        updated["tutorial_completed"] = bool(payload.get("tutorial_completed", False))
-    elif event_type == "task_charged":
-        updated["wallet_balance"] = float(payload.get("wallet_after_cost", updated.get("wallet_balance", DEFAULT_STARTING_WALLET)))
-    elif event_type == "task_finished":
-        updated["wallet_balance"] = float(payload.get("wallet_after", updated.get("wallet_balance", DEFAULT_STARTING_WALLET)))
-        completed = payload.get("completed_tutorial_tasks")
-        if isinstance(completed, list):
-            updated["completed_tutorial_tasks"] = completed
-        updated["tutorial_completed"] = bool(payload.get("tutorial_completed", updated.get("tutorial_completed", False)))
-    return updated
 
 
 def init_user_db(database_url: str) -> None:
@@ -118,11 +90,38 @@ def init_user_db(database_url: str) -> None:
                 module_name TEXT NOT NULL,
                 wallet_balance DOUBLE PRECISION NOT NULL DEFAULT 120.0,
                 tutorial_completed BOOLEAN NOT NULL DEFAULT FALSE,
-                completed_tutorial_tasks_json JSONB NOT NULL DEFAULT '[]'::jsonb,
-                owned_agents_json JSONB NOT NULL DEFAULT '[]'::jsonb,
                 last_event_id TEXT,
                 updated_at TIMESTAMPTZ NOT NULL,
                 PRIMARY KEY (user_id, module_name)
+            )
+            """
+        )
+
+        cursor.execute(
+            """
+            CREATE TABLE IF NOT EXISTS user_agents (
+                user_id TEXT NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+                module_name TEXT NOT NULL,
+                agent_id TEXT NOT NULL,
+                preset TEXT,
+                level TEXT NOT NULL,
+                status TEXT NOT NULL DEFAULT 'active',
+                affinity DOUBLE PRECISION,
+                created_at TIMESTAMPTZ NOT NULL,
+                updated_at TIMESTAMPTZ NOT NULL,
+                PRIMARY KEY (user_id, module_name, agent_id)
+            )
+            """
+        )
+
+        cursor.execute(
+            """
+            CREATE TABLE IF NOT EXISTS user_tutorial_progress (
+                user_id TEXT NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+                module_name TEXT NOT NULL,
+                task_id TEXT NOT NULL,
+                completed_at TIMESTAMPTZ NOT NULL,
+                PRIMARY KEY (user_id, module_name, task_id)
             )
             """
         )
@@ -136,7 +135,13 @@ def init_user_db(database_url: str) -> None:
         )
         cursor.execute("CREATE INDEX IF NOT EXISTS idx_user_events_run_id ON user_events(run_id)")
         cursor.execute("CREATE INDEX IF NOT EXISTS idx_user_events_event_type ON user_events(event_type)")
-
+        cursor.execute("CREATE INDEX IF NOT EXISTS idx_user_agents_user_module ON user_agents(user_id, module_name)")
+        cursor.execute(
+            """
+            CREATE INDEX IF NOT EXISTS idx_user_tutorial_progress_user_module
+            ON user_tutorial_progress(user_id, module_name)
+            """
+        )
         conn.commit()
     finally:
         cursor.close()
@@ -147,6 +152,8 @@ def rebuild_user_db(database_url: str) -> None:
     conn = _get_connection(database_url)
     cursor = conn.cursor(cursor_factory=RealDictCursor)
     try:
+        cursor.execute("DROP TABLE IF EXISTS user_tutorial_progress")
+        cursor.execute("DROP TABLE IF EXISTS user_agents")
         cursor.execute("DROP TABLE IF EXISTS user_events")
         cursor.execute("DROP TABLE IF EXISTS user_state_projection")
         cursor.execute("DROP TABLE IF EXISTS users")
@@ -160,24 +167,94 @@ def rebuild_user_db(database_url: str) -> None:
 def _ensure_projection(cursor, user_id: str, module_name: str, now: datetime) -> None:
     cursor.execute(
         """
-        INSERT INTO user_state_projection (
-            user_id, module_name, wallet_balance, tutorial_completed,
-            completed_tutorial_tasks_json, owned_agents_json, last_event_id, updated_at
-        )
-        VALUES (%s, %s, %s, %s, %s::jsonb, %s::jsonb, %s, %s)
+        INSERT INTO user_state_projection (user_id, module_name, wallet_balance, tutorial_completed, last_event_id, updated_at)
+        VALUES (%s, %s, %s, %s, %s, %s)
         ON CONFLICT (user_id, module_name) DO NOTHING
         """,
-        (
-            user_id,
-            module_name,
-            DEFAULT_STARTING_WALLET,
-            False,
-            json.dumps([], ensure_ascii=True),
-            json.dumps(DEFAULT_OWNED_AGENTS, ensure_ascii=True),
-            None,
-            now,
-        ),
+        (user_id, module_name, DEFAULT_STARTING_WALLET, False, None, now),
     )
+
+
+def _replace_user_agents(cursor, user_id: str, module_name: str, owned_agents: List[Dict[str, object]], now: datetime) -> None:
+    def _catalog_affinity_for(item: Dict[str, object]) -> Optional[float]:
+        candidates: List[str] = []
+        for key in ("agent_name", "preset", "agent_id"):
+            raw = item.get(key)
+            if raw is None:
+                continue
+            text = str(raw).strip()
+            if text:
+                candidates.append(text)
+
+        for name in candidates:
+            cursor.execute(
+                """
+                SELECT affinity
+                FROM agents
+                WHERE module_name = %s AND agent_name = %s
+                LIMIT 1
+                """,
+                (module_name, name),
+            )
+            row = cursor.fetchone()
+            if row is not None and row.get("affinity") is not None:
+                return float(row["affinity"])
+
+        level = str(item.get("level") or "").strip()
+        if level:
+            cursor.execute(
+                """
+                SELECT affinity
+                FROM agents
+                WHERE module_name = %s AND level = %s
+                ORDER BY agent_name ASC
+                LIMIT 1
+                """,
+                (module_name, level),
+            )
+            row = cursor.fetchone()
+            if row is not None and row.get("affinity") is not None:
+                return float(row["affinity"])
+
+        return None
+
+    cursor.execute("DELETE FROM user_agents WHERE user_id = %s AND module_name = %s", (user_id, module_name))
+    for item in owned_agents:
+        if not isinstance(item, dict):
+            continue
+        agent_id = normalize_id(str(item.get("agent_id") or "agent_unknown"), "agent_id")
+        preset = str(item.get("preset") or "") or None
+        level = str(item.get("level") or "junior")
+        status = str(item.get("status") or "active")
+        affinity_raw = item.get("affinity")
+        if isinstance(affinity_raw, (int, float)):
+            affinity = float(affinity_raw)
+        else:
+            affinity = _catalog_affinity_for(item)
+            if affinity is None:
+                affinity = 0.5
+        cursor.execute(
+            """
+            INSERT INTO user_agents (
+                user_id, module_name, agent_id, preset, level, status, affinity, created_at, updated_at
+            ) VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s)
+            """,
+            (user_id, module_name, agent_id, preset, level, status, affinity, now, now),
+        )
+
+
+def _replace_tutorial_completed_tasks(cursor, user_id: str, module_name: str, task_ids: List[str], now: datetime) -> None:
+    cursor.execute("DELETE FROM user_tutorial_progress WHERE user_id = %s AND module_name = %s", (user_id, module_name))
+    for task_id in task_ids:
+        normalized = normalize_id(str(task_id), "task_id")
+        cursor.execute(
+            """
+            INSERT INTO user_tutorial_progress (user_id, module_name, task_id, completed_at)
+            VALUES (%s, %s, %s, %s)
+            ON CONFLICT (user_id, module_name, task_id) DO UPDATE SET completed_at = EXCLUDED.completed_at
+            """,
+            (user_id, module_name, normalized, now),
+        )
 
 
 def create_user(
@@ -205,23 +282,13 @@ def create_user(
 
         cursor.execute(
             """
-            INSERT INTO user_state_projection (
-                user_id, module_name, wallet_balance, tutorial_completed,
-                completed_tutorial_tasks_json, owned_agents_json, last_event_id, updated_at
-            )
-            VALUES (%s, %s, %s, %s, %s::jsonb, %s::jsonb, %s, %s)
+            INSERT INTO user_state_projection (user_id, module_name, wallet_balance, tutorial_completed, last_event_id, updated_at)
+            VALUES (%s, %s, %s, %s, %s, %s)
             """,
-            (
-                user_id,
-                selected_module,
-                float(wallet_balance),
-                False,
-                json.dumps([], ensure_ascii=True),
-                json.dumps(DEFAULT_OWNED_AGENTS, ensure_ascii=True),
-                None,
-                now,
-            ),
+            (user_id, selected_module, float(wallet_balance), False, None, now),
         )
+
+        _replace_user_agents(cursor, user_id, selected_module, list(DEFAULT_OWNED_AGENTS), now)
 
         event_id = generate_id("uev")
         cursor.execute(
@@ -285,23 +352,66 @@ def check_username_exists(username: str, database_url: str) -> bool:
         conn.close()
 
 
-def _build_user_row(user_row: Dict[str, object], projection_row: Optional[Dict[str, object]], task_history: List[Dict[str, object]]) -> Dict[str, object]:
+def _build_user_row(
+    user_row: Dict[str, object],
+    projection_row: Optional[Dict[str, object]],
+    task_history: List[Dict[str, object]],
+    owned_agents: List[Dict[str, object]],
+    completed_tasks: List[str],
+) -> Dict[str, object]:
     projection = projection_row or {}
-    completed = projection.get("completed_tutorial_tasks_json")
-    owned = projection.get("owned_agents_json")
     return {
         "user_id": user_row["id"],
         "username": user_row["username"],
         "wallet_balance": float(projection.get("wallet_balance", DEFAULT_STARTING_WALLET)),
         "tutorial_completed": bool(projection.get("tutorial_completed", False)),
-        "owned_agents": _list_or_default(owned, DEFAULT_OWNED_AGENTS),
-        "tutorial_progress": {"completed_tasks": _list_or_default(completed, [])},
+        "owned_agents": owned_agents,
+        "tutorial_progress": {"completed_tasks": completed_tasks},
         "task_history": task_history,
         "created_at": user_row["created_at"].isoformat() if hasattr(user_row["created_at"], "isoformat") else str(user_row["created_at"]),
         "updated_at": (projection.get("updated_at") or user_row["updated_at"]).isoformat()
-        if hasattr(projection.get("updated_at") or user_row["updated_at"], "isoformat")
+        if hasattr((projection.get("updated_at") or user_row["updated_at"]), "isoformat")
         else str(projection.get("updated_at") or user_row["updated_at"]),
     }
+
+
+def _fetch_user_agents(cursor, user_id: str, module_name: str) -> List[Dict[str, object]]:
+    cursor.execute(
+        """
+        SELECT agent_id, preset, level, status, affinity
+        FROM user_agents
+        WHERE user_id = %s AND module_name = %s
+        ORDER BY agent_id ASC
+        """,
+        (user_id, module_name),
+    )
+    rows = cursor.fetchall() or []
+    output: List[Dict[str, object]] = []
+    for row in rows:
+        item = {
+            "agent_id": row["agent_id"],
+            "level": row["level"],
+            "status": row["status"],
+        }
+        if row.get("preset") is not None:
+            item["preset"] = row["preset"]
+        if row.get("affinity") is not None:
+            item["affinity"] = float(row["affinity"])
+        output.append(item)
+    return output
+
+
+def _fetch_completed_tutorial_tasks(cursor, user_id: str, module_name: str) -> List[str]:
+    cursor.execute(
+        """
+        SELECT task_id
+        FROM user_tutorial_progress
+        WHERE user_id = %s AND module_name = %s
+        ORDER BY completed_at ASC
+        """,
+        (user_id, module_name),
+    )
+    return [str(row["task_id"]) for row in (cursor.fetchall() or [])]
 
 
 def get_user_projection(
@@ -317,7 +427,6 @@ def get_user_projection(
         cursor.execute(
             """
             SELECT user_id, module_name, wallet_balance, tutorial_completed,
-                   completed_tutorial_tasks_json, owned_agents_json,
                    last_event_id, updated_at
             FROM user_state_projection
             WHERE user_id = %s AND module_name = %s
@@ -333,8 +442,8 @@ def get_user_projection(
             "module_name": row["module_name"],
             "wallet_balance": float(row["wallet_balance"]),
             "tutorial_completed": bool(row["tutorial_completed"]),
-            "completed_tutorial_tasks": _list_or_default(row.get("completed_tutorial_tasks_json"), []),
-            "owned_agents": _list_or_default(row.get("owned_agents_json"), DEFAULT_OWNED_AGENTS),
+            "completed_tutorial_tasks": _fetch_completed_tutorial_tasks(cursor, user_id, selected_module),
+            "owned_agents": _fetch_user_agents(cursor, user_id, selected_module),
             "last_event_id": row.get("last_event_id"),
             "updated_at": row["updated_at"].isoformat() if hasattr(row["updated_at"], "isoformat") else str(row["updated_at"]),
         }
@@ -383,6 +492,7 @@ def list_user_events(
         output: List[Dict[str, object]] = []
         for row in rows:
             created_at = row["created_at"]
+            payload = row.get("payload_json") if isinstance(row.get("payload_json"), dict) else {}
             output.append(
                 {
                     "event_id": row["id"],
@@ -392,7 +502,7 @@ def list_user_events(
                     "event_version": int(row["event_version"]),
                     "run_id": row.get("run_id"),
                     "task_id": row.get("task_id"),
-                    "payload": row.get("payload_json") if isinstance(row.get("payload_json"), dict) else {},
+                    "payload": payload,
                     "created_at": created_at.isoformat() if hasattr(created_at, "isoformat") else str(created_at),
                 }
             )
@@ -428,9 +538,7 @@ def append_user_event(
 
         cursor.execute(
             """
-            SELECT wallet_balance, tutorial_completed,
-                   completed_tutorial_tasks_json, owned_agents_json,
-                   last_event_id, updated_at
+            SELECT wallet_balance, tutorial_completed
             FROM user_state_projection
             WHERE user_id = %s AND module_name = %s
             LIMIT 1
@@ -438,13 +546,26 @@ def append_user_event(
             (user_id, selected_module),
         )
         current = cursor.fetchone() or {}
-        current_projection = {
-            "wallet_balance": float(current.get("wallet_balance", DEFAULT_STARTING_WALLET)),
-            "tutorial_completed": bool(current.get("tutorial_completed", False)),
-            "completed_tutorial_tasks": _list_or_default(current.get("completed_tutorial_tasks_json"), []),
-            "owned_agents": _list_or_default(current.get("owned_agents_json"), DEFAULT_OWNED_AGENTS),
-        }
-        updated_projection = _apply_event_to_projection(current_projection, event_type, payload)
+        wallet_balance = float(current.get("wallet_balance", DEFAULT_STARTING_WALLET))
+        tutorial_completed = bool(current.get("tutorial_completed", False))
+
+        if event_type == "task_charged":
+            wallet_balance = float(payload.get("wallet_after_cost", wallet_balance))
+        elif event_type == "task_finished":
+            wallet_balance = float(payload.get("wallet_after", wallet_balance))
+            tutorial_completed = bool(payload.get("tutorial_completed", tutorial_completed))
+            completed = payload.get("completed_tutorial_tasks")
+            if isinstance(completed, list):
+                _replace_tutorial_completed_tasks(cursor, user_id, selected_module, [str(x) for x in completed], now)
+        elif event_type == "user_initialized":
+            wallet_balance = float(payload.get("wallet_balance", wallet_balance))
+            agents = payload.get("owned_agents")
+            if isinstance(agents, list):
+                _replace_user_agents(cursor, user_id, selected_module, agents, now)
+            completed = payload.get("completed_tutorial_tasks")
+            if isinstance(completed, list):
+                _replace_tutorial_completed_tasks(cursor, user_id, selected_module, [str(x) for x in completed], now)
+            tutorial_completed = bool(payload.get("tutorial_completed", tutorial_completed))
 
         event_id = generate_id("uev")
         cursor.execute(
@@ -472,22 +593,11 @@ def append_user_event(
             UPDATE user_state_projection
             SET wallet_balance = %s,
                 tutorial_completed = %s,
-                completed_tutorial_tasks_json = %s::jsonb,
-                owned_agents_json = %s::jsonb,
                 last_event_id = %s,
                 updated_at = %s
             WHERE user_id = %s AND module_name = %s
             """,
-            (
-                float(updated_projection.get("wallet_balance", DEFAULT_STARTING_WALLET)),
-                bool(updated_projection.get("tutorial_completed", False)),
-                json.dumps(_list_or_default(updated_projection.get("completed_tutorial_tasks"), []), ensure_ascii=True),
-                json.dumps(_list_or_default(updated_projection.get("owned_agents"), DEFAULT_OWNED_AGENTS), ensure_ascii=True),
-                event_id,
-                now,
-                user_id,
-                selected_module,
-            ),
+            (wallet_balance, tutorial_completed, event_id, now, user_id, selected_module),
         )
         cursor.execute("UPDATE users SET updated_at = %s WHERE id = %s", (now, user_id))
         conn.commit()
@@ -530,8 +640,7 @@ def get_user_by_id(
 
         cursor.execute(
             """
-            SELECT wallet_balance, tutorial_completed,
-                   completed_tutorial_tasks_json, owned_agents_json, updated_at
+            SELECT wallet_balance, tutorial_completed, updated_at
             FROM user_state_projection
             WHERE user_id = %s AND module_name = %s
             LIMIT 1
@@ -540,6 +649,11 @@ def get_user_by_id(
         )
         projection_row = cursor.fetchone()
 
+        owned_agents = _fetch_user_agents(cursor, user_id, selected_module)
+        if not owned_agents:
+            owned_agents = list(DEFAULT_OWNED_AGENTS)
+        completed_tasks = _fetch_completed_tutorial_tasks(cursor, user_id, selected_module)
+
         task_history_events = list_user_events(
             user_id=user_id,
             database_url=database_url,
@@ -547,7 +661,13 @@ def get_user_by_id(
             event_type="task_finished",
             limit=1000,
         )
-        return _build_user_row(user_row, projection_row, _task_history_from_events(task_history_events))
+        return _build_user_row(
+            user_row,
+            projection_row,
+            _task_history_from_events(task_history_events),
+            owned_agents,
+            completed_tasks,
+        )
     finally:
         cursor.close()
         conn.close()
@@ -570,8 +690,7 @@ def get_user_by_username(
 
         cursor.execute(
             """
-            SELECT wallet_balance, tutorial_completed,
-                   completed_tutorial_tasks_json, owned_agents_json, updated_at
+            SELECT wallet_balance, tutorial_completed, updated_at
             FROM user_state_projection
             WHERE user_id = %s AND module_name = %s
             LIMIT 1
@@ -580,6 +699,11 @@ def get_user_by_username(
         )
         projection_row = cursor.fetchone()
 
+        owned_agents = _fetch_user_agents(cursor, str(user_row["id"]), selected_module)
+        if not owned_agents:
+            owned_agents = list(DEFAULT_OWNED_AGENTS)
+        completed_tasks = _fetch_completed_tutorial_tasks(cursor, str(user_row["id"]), selected_module)
+
         task_history_events = list_user_events(
             user_id=str(user_row["id"]),
             database_url=database_url,
@@ -587,7 +711,13 @@ def get_user_by_username(
             event_type="task_finished",
             limit=1000,
         )
-        return _build_user_row(user_row, projection_row, _task_history_from_events(task_history_events))
+        return _build_user_row(
+            user_row,
+            projection_row,
+            _task_history_from_events(task_history_events),
+            owned_agents,
+            completed_tasks,
+        )
     finally:
         cursor.close()
         conn.close()
@@ -601,11 +731,14 @@ def upsert_user_state(user: Dict[str, object], database_url: str) -> Dict[str, o
 
     wallet_balance = float(user.get("wallet_balance", DEFAULT_STARTING_WALLET))
     tutorial_completed = bool(user.get("tutorial_completed", False))
+
     tutorial_progress_raw = user.get("tutorial_progress", {})
     tutorial_progress = tutorial_progress_raw if isinstance(tutorial_progress_raw, dict) else {}
-    completed_tasks = tutorial_progress.get("completed_tasks") if isinstance(tutorial_progress, dict) else []
-    completed_tasks = completed_tasks if isinstance(completed_tasks, list) else []
-    owned_agents = user.get("owned_agents") if isinstance(user.get("owned_agents"), list) else list(DEFAULT_OWNED_AGENTS)
+    completed_tasks_raw = tutorial_progress.get("completed_tasks") if isinstance(tutorial_progress, dict) else []
+    completed_tasks = [str(x) for x in completed_tasks_raw] if isinstance(completed_tasks_raw, list) else []
+
+    owned_agents_raw = user.get("owned_agents")
+    owned_agents = owned_agents_raw if isinstance(owned_agents_raw, list) else list(DEFAULT_OWNED_AGENTS)
 
     conn = _get_connection(database_url)
     cursor = conn.cursor(cursor_factory=RealDictCursor)
@@ -623,29 +756,18 @@ def upsert_user_state(user: Dict[str, object], database_url: str) -> Dict[str, o
 
         cursor.execute(
             """
-            INSERT INTO user_state_projection (
-                user_id, module_name, wallet_balance, tutorial_completed,
-                completed_tutorial_tasks_json, owned_agents_json, last_event_id, updated_at
-            )
-            VALUES (%s, %s, %s, %s, %s::jsonb, %s::jsonb, %s, %s)
+            INSERT INTO user_state_projection (user_id, module_name, wallet_balance, tutorial_completed, last_event_id, updated_at)
+            VALUES (%s, %s, %s, %s, %s, %s)
             ON CONFLICT (user_id, module_name) DO UPDATE SET
                 wallet_balance = EXCLUDED.wallet_balance,
                 tutorial_completed = EXCLUDED.tutorial_completed,
-                completed_tutorial_tasks_json = EXCLUDED.completed_tutorial_tasks_json,
-                owned_agents_json = EXCLUDED.owned_agents_json,
                 updated_at = EXCLUDED.updated_at
             """,
-            (
-                user_id,
-                selected_module,
-                wallet_balance,
-                tutorial_completed,
-                json.dumps(completed_tasks, ensure_ascii=True),
-                json.dumps(owned_agents, ensure_ascii=True),
-                None,
-                now,
-            ),
+            (user_id, selected_module, wallet_balance, tutorial_completed, None, now),
         )
+
+        _replace_user_agents(cursor, user_id, selected_module, owned_agents, now)
+        _replace_tutorial_completed_tasks(cursor, user_id, selected_module, completed_tasks, now)
         conn.commit()
     finally:
         cursor.close()
