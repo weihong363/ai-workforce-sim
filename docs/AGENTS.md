@@ -382,3 +382,17 @@ Not as:
 ```
 Manage → Execute → Evaluate → Trade → Optimize
 ```
+---
+
+## Future Capabilities (Not MVP)
+
+- long-term memory (vector-based)
+- experience accumulation
+- skill evolution
+- task specialization
+
+---
+
+Rule:
+Agents in MVP are stateless except affinity.
+No memory system yet.

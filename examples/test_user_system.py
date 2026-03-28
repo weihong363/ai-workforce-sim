@@ -7,7 +7,7 @@ from pathlib import Path
 # Add project to path
 sys.path.insert(0, str(Path(__file__).parent.parent))
 
-from core_engine.snowflake import generate_user_id
+from core_engine.id_generator import generate_user_id
 from game_modules.business_sim.progression import (
     check_username_exists,
     get_user_by_username,
@@ -15,10 +15,10 @@ from game_modules.business_sim.progression import (
 )
 
 
-def test_snowflake():
-    """Test snowflake ID generation."""
+def test_id_generation():
+    """Test ULID ID generation."""
     print("=" * 60)
-    print("1. Testing Snowflake ID Generation")
+    print("1. Testing ULID ID Generation")
     print("=" * 60)
     
     id1 = generate_user_id()
@@ -27,8 +27,8 @@ def test_snowflake():
     print(f"Generated ID 1: {id1}")
     print(f"Generated ID 2: {id2}")
     print(f"IDs are unique: {id1 != id2}")
-    print(f"ID is numeric: {id1.isdigit()}")
-    print(f"ID length: {len(id1)} digits")
+    print(f"ID prefix ok: {id1.startswith('usr_')}")
+    print(f"ID length: {len(id1)}")
     print()
 
 
@@ -107,7 +107,7 @@ def test_duplicate_prevention():
 if __name__ == "__main__":
     print("\n🚀 User System Test\n")
     
-    test_snowflake()
+    test_id_generation()
     test_username_uniqueness()
     test_get_user_by_username()
     test_duplicate_prevention()
@@ -116,7 +116,7 @@ if __name__ == "__main__":
     print("✅ All Tests Complete!")
     print("=" * 60)
     print("\nKey Features:")
-    print("  • Distributed unique ID generation (Snowflake)")
+    print("  • Time-sortable unique ID generation (ULID)")
     print("  • Username uniqueness enforcement")
     print("  • User lookup by username")
     print("  • Duplicate prevention")

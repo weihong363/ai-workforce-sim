@@ -7,6 +7,7 @@ backward compatibility with legacy env keys.
 import json
 import os
 from dataclasses import dataclass
+from functools import lru_cache
 from typing import Dict, Mapping, Optional
 
 from dotenv import load_dotenv
@@ -80,6 +81,12 @@ DEFAULT_PROVIDER_CONNECTIONS = {
         "api_key_env": "OPENAI_API_KEY",
         "timeout_seconds": 30,
     },
+    "siliconflow": {
+        "type": "openai_compatible",
+        "base_url": "https://api.siliconflow.com/v1",
+        "api_key_env": "PROVIDER_SILICONFLOW_API_KEY",
+        "timeout_seconds": 30,
+    },
 }
 
 
@@ -121,21 +128,90 @@ def _json_or_default(raw: Optional[str], default: Mapping[str, object]) -> Dict[
 
 
 def _load_env_file() -> None:
+    """Load .env file lazily (only once)."""
     env_path = os.path.join(os.path.dirname(os.path.dirname(__file__)), ".env")
     if os.path.exists(env_path):
         load_dotenv(dotenv_path=env_path)
 
 
-def get_settings() -> Settings:
-    _load_env_file()
+def _apply_provider_env_overrides(connections: Dict[str, Dict[str, object]]) -> Dict[str, Dict[str, object]]:
+    """Apply environment variable overrides to provider connections.
+    
+    Environment variables follow the pattern: PROVIDER_{NAME}_{FIELD}
+    Example: PROVIDER_OPENAI_API_KEY, PROVIDER_ANTHROPIC_BASE_URL
+    
+    Args:
+        connections: Provider connection configurations from JSON or defaults
+        
+    Returns:
+        New dictionary with environment overrides applied
+    """
+    result = {}
+    for provider_name, cfg in connections.items():
+        if not isinstance(cfg, dict):
+            continue
+            
+        # Create a new dict to avoid mutating input
+        provider_config = dict(cfg)
+        
+        # Build env var prefix (handle special characters in provider name)
+        prefix = provider_name.upper().replace("-", "_").replace(".", "_")
+        
+        # Apply all supported overrides using a field mapping
+        override_fields = {
+            "api_key": f"PROVIDER_{prefix}_API_KEY",
+            "base_url": f"PROVIDER_{prefix}_BASE_URL",
+            "timeout_seconds": f"PROVIDER_{prefix}_TIMEOUT_SECONDS",
+        }
+        
+        for field_name, env_var in override_fields.items():
+            value = os.getenv(env_var)
+            if value:
+                if field_name == "timeout_seconds":
+                    try:
+                        provider_config[field_name] = float(value)
+                    except ValueError:
+                        pass  # Keep original value if parsing fails
+                else:
+                    provider_config[field_name] = value
+        
+        result[provider_name] = provider_config
+    
+    return result
 
-    connections = _json_or_default(
+
+@lru_cache(maxsize=None)
+def get_settings(force_reload: bool = False) -> Settings:
+    """Get application settings with caching support.
+    
+    Settings are loaded lazily on first access and cached for subsequent calls.
+    This avoids repeated file I/O and environment variable lookups.
+    
+    Args:
+        force_reload: If True, bypass cache and reload from environment.
+                     Note: This requires calling cache_clear() first.
+        
+    Returns:
+        Settings instance with current configuration
+    """
+    # Lazy load .env file (only happens once due to lru_cache)
+    _load_env_file()
+    
+    # Load connections from JSON or use defaults
+    raw_connections = _json_or_default(
         os.getenv("PROVIDER_CONNECTIONS_JSON"),
         DEFAULT_PROVIDER_CONNECTIONS,
     )
+    
+    # Filter valid dicts and apply environment overrides
+    connections = _apply_provider_env_overrides(raw_connections)
 
     # Vendor-agnostic routing keys.
-    provider_for_task = os.getenv("PROVIDER_FOR_TASK", os.getenv("LLM_PROVIDER", "mock"))
+    default_provider = os.getenv("DEFAULT_PROVIDER")
+    provider_for_task = os.getenv(
+        "PROVIDER_FOR_TASK",
+        default_provider or os.getenv("LLM_PROVIDER", "mock"),
+    )
     provider_for_evaluation = os.getenv("PROVIDER_FOR_EVALUATION", provider_for_task)
     fallback_provider = os.getenv("FALLBACK_PROVIDER") or os.getenv("LLM_FALLBACK_PROVIDER")
 
@@ -159,7 +235,7 @@ def get_settings() -> Settings:
         task_result_cache_ttl_seconds=_to_int(os.getenv("TASK_RESULT_CACHE_TTL_SECONDS"), 600),
         task_cache_delay_min_ms=_to_int(os.getenv("TASK_CACHE_DELAY_MIN_MS"), 60),
         task_cache_delay_max_ms=_to_int(os.getenv("TASK_CACHE_DELAY_MAX_MS"), 180),
-        provider_connections={k: dict(v) for k, v in connections.items() if isinstance(v, dict)},
+        provider_connections=connections,
         provider_for_purpose={
             "task": provider_for_task,
             "evaluation": provider_for_evaluation,

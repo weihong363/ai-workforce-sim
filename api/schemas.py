@@ -1,16 +1,14 @@
 """API schemas for request/response models."""
 
-from typing import Optional
+from typing import List, Optional
 
 from pydantic import BaseModel, Field, ConfigDict
 
 
 class RunTaskRequest(BaseModel):
     """Request model for /run-task endpoint."""
-    task_name: str = Field(..., description="Name of the task to execute")
-    module_name: Optional[str] = Field(None, description="Game module name (uses default if not provided)")
-    user_id: Optional[str] = Field(None, description="Player id for progression flow")
-    username: Optional[str] = Field(None, description="Player username (auto-generates user_id if not provided)")
+    task_id: str = Field(..., description="Task ID to execute")
+    user_id: str = Field(..., min_length=1, description="Player id for progression flow (required)")
     instructions: Optional[str] = Field(None, description="Player instruction text for this task")
 
 
@@ -56,7 +54,7 @@ class RunDetailResponse(BaseModel):
     model_config = ConfigDict(extra="allow")
     
     run_id: str = Field(..., description="Unique run identifier")
-    task_name: str = Field(..., description="Task name")
+    task_id: str = Field(..., description="Task ID")
     module_name: str = Field(..., description="Module name")
     final_score: float = Field(..., description="Final evaluation score")
     status: str = Field(..., description="Run status")
@@ -93,3 +91,11 @@ class CheckUsernameResponse(BaseModel):
     """Response model for username availability check."""
     username: str = Field(..., description="Checked username")
     available: bool = Field(..., description="True if username is available")
+
+
+class BenchmarkRequest(BaseModel):
+    """Request model for model benchmark debugging."""
+
+    task_id: str = Field(..., description="Task ID to benchmark")
+    agent_level: str = Field("mid", description="Agent level: junior/mid/senior")
+    models: List[str] = Field(..., min_length=1, description="Candidate model list")

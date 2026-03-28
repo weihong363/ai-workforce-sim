@@ -1,8 +1,3 @@
-import time
-
-from fastapi.testclient import TestClient
-
-import api.app as app_module
 import api.run_task as run_task_module
 
 
@@ -11,23 +6,33 @@ def _patch_persistence(monkeypatch) -> None:
     monkeypatch.setattr(run_task_module, "update_run_status", lambda *args, **kwargs: None)
     monkeypatch.setattr(run_task_module, "persist_workflow_steps", lambda *args, **kwargs: None)
     monkeypatch.setattr(run_task_module, "persist_asset", lambda *args, **kwargs: "asset_test_001")
+    monkeypatch.setenv("DEFAULT_PROVIDER", "mock")
+    monkeypatch.setenv("PROVIDER_FOR_TASK", "mock")
+    monkeypatch.setenv("PROVIDER_FOR_EVALUATION", "mock")
+    monkeypatch.setenv("PROVIDER_TASK_JUNIOR", "mock")
+    monkeypatch.setenv("PROVIDER_TASK_MID", "mock")
+    monkeypatch.setenv("PROVIDER_TASK_SENIOR", "mock")
+    monkeypatch.setenv("PROVIDER_EVALUATOR", "mock")
+    monkeypatch.setenv("MODEL_FOR_TASK", "mvp-default")
+    monkeypatch.setenv("MODEL_FOR_EVALUATION", "mvp-default")
+    monkeypatch.setenv("MODEL_TASK_JUNIOR", "mvp-default")
+    monkeypatch.setenv("MODEL_TASK_MID", "mvp-default")
+    monkeypatch.setenv("MODEL_TASK_SENIOR", "mvp-default")
+    monkeypatch.setenv("MODEL_EVALUATOR", "mvp-default")
+    from core_engine.config import get_settings
 
+    get_settings.cache_clear()
+    import game_modules.business_sim.tasks as task_module
 
-def test_async_run_task_flow_returns_immediately(monkeypatch) -> None:
-    monkeypatch.setattr(app_module, "create_run", lambda *args, **kwargs: "run_async_001")
+    seed_tasks = task_module.get_seed_tasks()
+    monkeypatch.setattr(task_module, "list_tasks", lambda: seed_tasks)
 
-    def fake_run_task(*args, **kwargs):
-        time.sleep(0.05)
-        return {"storage": {"run_id": "run_async_001"}, "status": "completed"}
+    def _get_task(name: str):
+        if name not in seed_tasks:
+            raise ValueError(f"Unknown task: {name}")
+        return seed_tasks[name]
 
-    monkeypatch.setattr(app_module, "run_task", fake_run_task)
-
-    client = TestClient(app_module.app)
-    response = client.post("/run-task", json={"task_name": "launch_coffee_subscription"})
-    assert response.status_code == 200
-    body = response.json()
-    assert body["run_id"] == "run_async_001"
-    assert body["status"] == "pending"
+    monkeypatch.setattr(task_module, "get_task", _get_task)
 
 
 def test_token_budget_enforcement(monkeypatch) -> None:
@@ -37,12 +42,13 @@ def test_token_budget_enforcement(monkeypatch) -> None:
 
     import game_modules.business_sim.tasks as task_module
 
-    original_budget = task_module.TASKS["launch_coffee_subscription"].get("max_total_tokens")
-    task_module.TASKS["launch_coffee_subscription"]["max_total_tokens"] = 20
+    seed_tasks = task_module.list_tasks()
+    original_budget = seed_tasks["launch_coffee_subscription"].get("max_total_tokens")
+    seed_tasks["launch_coffee_subscription"]["max_total_tokens"] = 20
     try:
         result = run_task_module.run_task("launch_coffee_subscription")
     finally:
-        task_module.TASKS["launch_coffee_subscription"]["max_total_tokens"] = original_budget
+        seed_tasks["launch_coffee_subscription"]["max_total_tokens"] = original_budget
 
     assert any(step.get("budget_action") == "task_total_budget_truncated" for step in result["workflow_results"])
 

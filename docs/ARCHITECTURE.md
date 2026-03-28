@@ -464,3 +464,62 @@ NOT as:
     Game Module = WHAT the rules are
 
 Never mix the two.
+
+---
+
+## Future Extensions (Not in MVP)
+
+These are planned but MUST NOT be implemented now.
+
+### 1. Agent-level Workers
+
+Future:
+- each agent may run as an independent worker
+- distributed execution
+- queue-based scheduling
+
+Current MVP:
+- one run = one execution context
+- agents run inside workflow runner
+
+---
+
+### 2. Semantic Layer (Vector Search)
+
+Future:
+- pgvector or similar for:
+  - task similarity search
+  - asset retrieval
+  - prompt improvement suggestions
+  - agent memory
+
+Current MVP:
+- no vector database
+- no semantic retrieval
+
+---
+
+### 3. Advanced Simulation
+
+Future:
+- hiring / firing
+- agent resignation (low affinity)
+- team management
+- multi-agent collaboration optimization
+
+Current MVP:
+- single user owns small agent set
+- no lifecycle management yet
+
+---
+
+## Rule
+
+Future features must NOT affect current MVP architecture.
+
+Do not introduce:
+- distributed workers
+- vector DB
+- long-term memory
+
+until core loop is validated.

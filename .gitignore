@@ -43,6 +43,10 @@ env/
 *.sqlite3
 data/*.db
 data/tests/*.db
+data/runs/
+api/data/
+data/business_sim_users.json
+connectivity_test_results.json
 
 # Logs
 *.log

@@ -1,364 +1,219 @@
-"""Initialize PostgreSQL database with test data."""
+#!/usr/bin/env python3
+"""Initialize output database schema (workflow_runs/workflow_steps/assets).
 
+This script defaults to the `workforce` database and can optionally seed
+lightweight demo rows for local inspection.
+"""
+
+from __future__ import annotations
+
+import argparse
+import json
 import os
+import sys
 from pathlib import Path
+from urllib.parse import parse_qsl, urlencode, urlparse, urlunparse
+
+import psycopg2
+from psycopg2.extras import RealDictCursor
 from dotenv import load_dotenv
 
-# Load environment variables
-load_dotenv()
+# Add project root to import path.
+sys.path.insert(0, str(Path(__file__).parent.parent))
 
-DATABASE_URL = os.getenv("DATABASE_URL", "postgresql://postgres:difyai123456@localhost:5432/dify")
+from core_engine.result_store import init_db  # noqa: E402
 
-def extract_db_info(database_url: str) -> dict:
-    """Extract database connection info from URL."""
-    # postgresql://user:password@host:port/dbname
-    from urllib.parse import urlparse
-    
+
+DEFAULT_DATABASE_URL = "postgresql://postgres:difyai123456@localhost:5432/workforce"
+
+
+def _normalize_database_url(database_url: str, db_name: str) -> str:
+    parsed = urlparse(database_url)
+    query = dict(parse_qsl(parsed.query, keep_blank_values=True))
+    path = f"/{db_name}"
+    return urlunparse((
+        parsed.scheme or "postgresql",
+        parsed.netloc,
+        path,
+        parsed.params,
+        urlencode(query),
+        parsed.fragment,
+    ))
+
+
+def _extract_db_info(database_url: str) -> dict[str, object]:
     parsed = urlparse(database_url)
     return {
-        "user": parsed.username,
-        "password": parsed.password,
         "host": parsed.hostname or "localhost",
         "port": parsed.port or 5432,
-        "database": parsed.path.lstrip("/") if parsed.path else "postgres"
+        "user": parsed.username,
+        "password": parsed.password,
+        "database": parsed.path.lstrip("/") if parsed.path else "postgres",
     }
 
-def init_database():
-    """Initialize database schema and create test data."""
-    import psycopg2
-    from psycopg2.extras import RealDictCursor
-    
-    db_info = extract_db_info(DATABASE_URL)
-    
-    print(f"📦 Connecting to PostgreSQL...")
-    print(f"   Host: {db_info['host']}:{db_info['port']}")
-    print(f"   Database: {db_info['database']}")
-    print(f"   User: {db_info['user']}")
-    print("")
-    
+
+def _seed_demo_data(database_url: str) -> None:
+    conn_info = _extract_db_info(database_url)
+    conn = psycopg2.connect(
+        host=conn_info["host"],
+        port=conn_info["port"],
+        user=conn_info["user"],
+        password=conn_info["password"],
+        database=conn_info["database"],
+    )
+    conn.autocommit = False
+    cursor = conn.cursor(cursor_factory=RealDictCursor)
     try:
-        # Connect to database
-        conn = psycopg2.connect(
-            host=db_info['host'],
-            port=db_info['port'],
-            user=db_info['user'],
-            password=db_info['password'],
-            database=db_info['database']
-        )
-        conn.autocommit = False
-        
-        cursor = conn.cursor(cursor_factory=RealDictCursor)
-        
-        print("✅ Connected to database")
-        print("")
-        
-        # Create tables
-        print("📝 Creating tables...")
-        
-        # Runs table
-        cursor.execute("""
-            CREATE TABLE IF NOT EXISTS runs (
-                id TEXT PRIMARY KEY,
-                task_name TEXT NOT NULL,
-                module_name TEXT NOT NULL,
-                final_score REAL,
-                status TEXT NOT NULL,
-                created_at TEXT NOT NULL
-            )
-        """)
-        print("   ✓ runs table")
-        
-        # Workflow steps table
-        cursor.execute("""
-            CREATE TABLE IF NOT EXISTS workflow_steps (
-                id TEXT PRIMARY KEY,
-                run_id TEXT NOT NULL,
-                step_index INTEGER NOT NULL,
-                agent_name TEXT NOT NULL,
-                prompt TEXT NOT NULL,
-                output TEXT NOT NULL,
-                created_at TEXT NOT NULL,
-                FOREIGN KEY(run_id) REFERENCES runs(id) ON DELETE CASCADE
-            )
-        """)
-        print("   ✓ workflow_steps table")
-        
-        # Assets table
-        cursor.execute("""
-            CREATE TABLE IF NOT EXISTS assets (
-                id TEXT PRIMARY KEY,
-                run_id TEXT NOT NULL,
-                asset_type TEXT NOT NULL,
-                payload_json TEXT NOT NULL,
-                created_at TEXT NOT NULL,
-                FOREIGN KEY(run_id) REFERENCES runs(id) ON DELETE CASCADE
-            )
-        """)
-        print("   ✓ assets table")
-        
-        conn.commit()
-        print("✅ Tables created successfully")
-        print("")
-        
-        # Clear existing test data
-        print("🗑️  Clearing existing test data...")
         cursor.execute("DELETE FROM assets")
         cursor.execute("DELETE FROM workflow_steps")
-        cursor.execute("DELETE FROM runs")
+        cursor.execute("DELETE FROM workflow_runs")
+
+        cursor.execute(
+            """
+            INSERT INTO workflow_runs (
+                id, task_id, module_name, final_score, total_cost, status,
+                error_message, created_at, updated_at
+            ) VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s)
+            """,
+            (
+                "test_run_001",
+                "launch_coffee_subscription",
+                "business_sim",
+                95.5,
+                0.002,
+                "completed",
+                None,
+                "2026-03-27T10:00:00+00:00",
+                "2026-03-27T10:00:03+00:00",
+            ),
+        )
+
+        token_usage = {"prompt_tokens": 120, "completion_tokens": 60, "total_tokens": 180}
+        cursor.execute(
+            """
+            INSERT INTO workflow_steps (
+                id, run_id, step_index, agent_name, prompt, output, provider, model,
+                token_usage_json, cost, cache_hit, effective_attributes_json,
+                affinity_before, affinity_after, created_at
+            ) VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s)
+            """,
+            (
+                "step_001_1",
+                "test_run_001",
+                0,
+                "market_analyst",
+                "Analyze launch potential.",
+                "Strong demand in tier-1 cities.",
+                "mock",
+                "mvp-default",
+                json.dumps(token_usage, ensure_ascii=True),
+                0.001,
+                0,
+                json.dumps({}, ensure_ascii=True),
+                None,
+                None,
+                "2026-03-27T10:00:01+00:00",
+            ),
+        )
+
+        cursor.execute(
+            """
+            INSERT INTO assets (id, run_id, asset_type, payload_json, created_at)
+            VALUES (%s, %s, %s, %s, %s)
+            """,
+            (
+                "asset_001",
+                "test_run_001",
+                "business_plan",
+                json.dumps({"summary": "Launch in tier-1 cities"}, ensure_ascii=True),
+                "2026-03-27T10:00:03+00:00",
+            ),
+        )
+
         conn.commit()
-        print("✅ Existing data cleared")
-        print("")
-        
-        # Insert test data
-        print("📊 Inserting test data...")
-        
-        # Test run 1
-        run_id_1 = "test_run_001"
-        cursor.execute("""
-            INSERT INTO runs (id, task_name, module_name, final_score, status, created_at)
-            VALUES (%s, %s, %s, %s, %s, %s)
-        """, (
-            run_id_1,
-            "launch_coffee_subscription",
-            "business_sim",
-            95.5,
-            "completed",
-            "2026-03-27T10:00:00+00:00"
-        ))
-        
-        # Workflow steps for run 1
-        cursor.execute("""
-            INSERT INTO workflow_steps (id, run_id, step_index, agent_name, prompt, output, created_at)
-            VALUES (%s, %s, %s, %s, %s, %s, %s)
-        """, (
-            "step_001_1",
-            run_id_1,
-            0,
-            "market_analyst",
-            "Agent: market_analyst\nTask Input: Assess if we should launch a coffee subscription in one city.\nPrevious Output: None\nProduce a short business-focused response.",
-            "Market analysis shows strong potential for coffee subscription model. Target urban professionals aged 25-40 with disposable income. Competitor analysis indicates gap in premium subscription market.",
-            "2026-03-27T10:00:01+00:00"
-        ))
-        
-        cursor.execute("""
-            INSERT INTO workflow_steps (id, run_id, step_index, agent_name, prompt, output, created_at)
-            VALUES (%s, %s, %s, %s, %s, %s, %s)
-        """, (
-            "step_001_2",
-            run_id_1,
-            1,
-            "strategy_writer",
-            "Agent: strategy_writer\nTask Input: Assess if we should launch a coffee subscription in one city.\nPrevious Output: Market analysis shows strong potential...\nProduce a short business-focused response.",
-            "Strategy: Launch premium coffee subscription in Tier 1 cities. Pricing: ¥199/month for daily premium coffee. Marketing focus on convenience and quality. Projected break-even in 6 months.",
-            "2026-03-27T10:00:02+00:00"
-        ))
-        
-        # Asset for run 1
-        import json
-        asset_payload_1 = {
-            "summary": "Strategy: Launch premium coffee subscription in Tier 1 cities. Pricing: ¥199/month",
-            "score": 95.5,
-            "steps": ["market_analyst", "strategy_writer"],
-            "recommendation": "proceed",
-            "estimated_roi": "25%"
-        }
-        
-        cursor.execute("""
-            INSERT INTO assets (id, run_id, asset_type, payload_json, created_at)
-            VALUES (%s, %s, %s, %s, %s)
-        """, (
-            "asset_001",
-            run_id_1,
-            "business_plan",
-            json.dumps(asset_payload_1),
-            "2026-03-27T10:00:03+00:00"
-        ))
-        
-        print("   ✓ Test run 1: launch_coffee_subscription (score: 95.5)")
-        
-        # Test run 2
-        run_id_2 = "test_run_002"
-        cursor.execute("""
-            INSERT INTO runs (id, task_name, module_name, final_score, status, created_at)
-            VALUES (%s, %s, %s, %s, %s, %s)
-        """, (
-            run_id_2,
-            "evaluate_market_expansion",
-            "business_sim",
-            88.0,
-            "completed",
-            "2026-03-27T11:00:00+00:00"
-        ))
-        
-        # Workflow steps for run 2
-        cursor.execute("""
-            INSERT INTO workflow_steps (id, run_id, step_index, agent_name, prompt, output, created_at)
-            VALUES (%s, %s, %s, %s, %s, %s, %s)
-        """, (
-            "step_002_1",
-            run_id_2,
-            0,
-            "market_analyst",
-            "Agent: market_analyst\nTask Input: Evaluate expansion to 3 new cities.\nPrevious Output: None\nProduce a short business-focused response.",
-            "Expansion analysis: Beijing, Shanghai, Shenzhen show high demand. Combined TAM: 5M potential customers. Infrastructure requirements moderate.",
-            "2026-03-27T11:00:01+00:00"
-        ))
-        
-        cursor.execute("""
-            INSERT INTO workflow_steps (id, run_id, step_index, agent_name, prompt, output, created_at)
-            VALUES (%s, %s, %s, %s, %s, %s, %s)
-        """, (
-            "step_002_2",
-            run_id_2,
-            1,
-            "strategy_writer",
-            "Agent: strategy_writer\nTask Input: Evaluate expansion to 3 new cities.\nPrevious Output: Expansion analysis...\nProduce a short business-focused response.",
-            "Phased rollout recommended: Q1 Beijing, Q2 Shanghai, Q3 Shenzhen. Budget: ¥50M. Expected customer acquisition: 500K in Year 1.",
-            "2026-03-27T11:00:02+00:00"
-        ))
-        
-        # Asset for run 2
-        asset_payload_2 = {
-            "summary": "Phased rollout to Beijing, Shanghai, Shenzhen. Budget: ¥50M",
-            "score": 88.0,
-            "steps": ["market_analyst", "strategy_writer"],
-            "recommendation": "proceed_with_caution",
-            "estimated_roi": "18%",
-            "risk_level": "medium"
-        }
-        
-        cursor.execute("""
-            INSERT INTO assets (id, run_id, asset_type, payload_json, created_at)
-            VALUES (%s, %s, %s, %s, %s)
-        """, (
-            "asset_002",
-            run_id_2,
-            "business_plan",
-            json.dumps(asset_payload_2),
-            "2026-03-27T11:00:03+00:00"
-        ))
-        
-        print("   ✓ Test run 2: evaluate_market_expansion (score: 88.0)")
-        
-        # Test run 3
-        run_id_3 = "test_run_003"
-        cursor.execute("""
-            INSERT INTO runs (id, task_name, module_name, final_score, status, created_at)
-            VALUES (%s, %s, %s, %s, %s, %s)
-        """, (
-            run_id_3,
-            "optimize_pricing_strategy",
-            "business_sim",
-            92.5,
-            "completed",
-            "2026-03-27T12:00:00+00:00"
-        ))
-        
-        # Workflow steps for run 3
-        cursor.execute("""
-            INSERT INTO workflow_steps (id, run_id, step_index, agent_name, prompt, output, created_at)
-            VALUES (%s, %s, %s, %s, %s, %s, %s)
-        """, (
-            "step_003_1",
-            run_id_3,
-            0,
-            "market_analyst",
-            "Agent: market_analyst\nTask Input: Optimize pricing for maximum revenue.\nPrevious Output: None\nProduce a short business-focused response.",
-            "Price elasticity analysis: Current ¥199/month shows 15% below optimal. Premium tier at ¥299 could capture 20% of market. Basic tier at ¥149 for price-sensitive segment.",
-            "2026-03-27T12:00:01+00:00"
-        ))
-        
-        cursor.execute("""
-            INSERT INTO workflow_steps (id, run_id, step_index, agent_name, prompt, output, created_at)
-            VALUES (%s, %s, %s, %s, %s, %s, %s)
-        """, (
-            "step_003_2",
-            run_id_3,
-            1,
-            "strategy_writer",
-            "Agent: strategy_writer\nTask Input: Optimize pricing for maximum revenue.\nPrevious Output: Price elasticity analysis...\nProduce a short business-focused response.",
-            "Recommended pricing tiers: Basic ¥149 (entry-level), Premium ¥199 (standard), Pro ¥299 (premium features). A/B test in 2 cities before national rollout.",
-            "2026-03-27T12:00:02+00:00"
-        ))
-        
-        # Asset for run 3
-        asset_payload_3 = {
-            "summary": "Three-tier pricing: Basic ¥149, Premium ¥199, Pro ¥299",
-            "score": 92.5,
-            "steps": ["market_analyst", "strategy_writer"],
-            "recommendation": "implement",
-            "estimated_revenue_increase": "+35%",
-            "pricing_tiers": [
-                {"name": "Basic", "price": 149},
-                {"name": "Premium", "price": 199},
-                {"name": "Pro", "price": 299}
-            ]
-        }
-        
-        cursor.execute("""
-            INSERT INTO assets (id, run_id, asset_type, payload_json, created_at)
-            VALUES (%s, %s, %s, %s, %s)
-        """, (
-            "asset_003",
-            run_id_3,
-            "business_plan",
-            json.dumps(asset_payload_3),
-            "2026-03-27T12:00:03+00:00"
-        ))
-        
-        print("   ✓ Test run 3: optimize_pricing_strategy (score: 92.5)")
-        
-        conn.commit()
-        
-        print("")
-        print("✅ Test data inserted successfully")
-        print("")
-        
-        # Verify data
-        print("📊 Verifying data...")
-        
-        cursor.execute("SELECT COUNT(*) as count FROM runs")
-        runs_count = cursor.fetchone()['count']
-        
-        cursor.execute("SELECT COUNT(*) as count FROM workflow_steps")
-        steps_count = cursor.fetchone()['count']
-        
-        cursor.execute("SELECT COUNT(*) as count FROM assets")
-        assets_count = cursor.fetchone()['count']
-        
-        print(f"   ✓ runs: {runs_count}")
-        print(f"   ✓ workflow_steps: {steps_count}")
-        print(f"   ✓ assets: {assets_count}")
-        print("")
-        
+    finally:
         cursor.close()
         conn.close()
-        
-        print("==============================================")
-        print("✅ Database initialization completed!")
-        print("==============================================")
-        print("")
-        print("Test data summary:")
-        print("  - 3 test runs created")
-        print("  - 6 workflow steps recorded")
-        print("  - 3 assets generated")
-        print("")
-        print("You can now test the API:")
-        print("  - GET /runs/test_run_001")
-        print("  - GET /runs/test_run_002")
-        print("  - GET /runs/test_run_003")
-        print("  - GET /assets/asset_001")
-        print("  - GET /assets/asset_002")
-        print("  - GET /assets/asset_003")
-        print("")
-        
-    except psycopg2.Error as e:
-        print(f"❌ Database error: {e}")
-        raise
-    except Exception as e:
-        print(f"❌ Error: {e}")
-        raise
+
+
+def _verify_tables(database_url: str) -> list[str]:
+    conn_info = _extract_db_info(database_url)
+    conn = psycopg2.connect(
+        host=conn_info["host"],
+        port=conn_info["port"],
+        user=conn_info["user"],
+        password=conn_info["password"],
+        database=conn_info["database"],
+    )
+    cursor = conn.cursor(cursor_factory=RealDictCursor)
+    try:
+        cursor.execute(
+            """
+            SELECT table_name
+            FROM information_schema.tables
+            WHERE table_schema = 'public'
+              AND table_name IN ('workflow_runs', 'workflow_steps', 'assets')
+            ORDER BY table_name
+            """
+        )
+        rows = cursor.fetchall() or []
+        return [str(r["table_name"]) for r in rows]
+    finally:
+        cursor.close()
+        conn.close()
+
+
+def main() -> None:
+    load_dotenv()
+
+    parser = argparse.ArgumentParser(description="Initialize output DB schema.")
+    parser.add_argument(
+        "--database-url",
+        default=os.getenv("DATABASE_URL", DEFAULT_DATABASE_URL),
+        help="PostgreSQL connection URL."
+    )
+    parser.add_argument(
+        "--db-name",
+        default="workforce",
+        help="Target database name. Default: workforce"
+    )
+    parser.add_argument(
+        "--with-test-data",
+        action="store_true",
+        help="Also insert minimal demo rows after schema init."
+    )
+    args = parser.parse_args()
+
+    target_url = _normalize_database_url(args.database_url, args.db_name)
+    db_info = _extract_db_info(target_url)
+
+    print("=" * 60)
+    print("Initializing Output Database")
+    print("=" * 60)
+    print(f"Host: {db_info['host']}:{db_info['port']}")
+    print(f"Database: {db_info['database']}")
+    print(f"User: {db_info['user']}")
+
+    init_db(target_url)
+    print("\n✅ Output schema initialized")
+
+    if args.with_test_data:
+        _seed_demo_data(target_url)
+        print("✅ Demo test data inserted")
+
+    existing = _verify_tables(target_url)
+    print("\nTables in public schema:")
+    for name in existing:
+        print(f"  - {name}")
+
+    expected = {"workflow_runs", "workflow_steps", "assets"}
+    if set(existing) != expected:
+        missing = expected - set(existing)
+        if missing:
+            raise RuntimeError(f"Missing expected tables: {sorted(missing)}")
+
+    print("\n✅ Done")
 
 
 if __name__ == "__main__":
-    init_database()
+    main()

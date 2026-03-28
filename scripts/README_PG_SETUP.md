@@ -6,7 +6,7 @@
 
 ```bash
 # .env 文件
-DATABASE_URL=postgresql://postgres:difyai123456@localhost:5432/dify
+DATABASE_URL=postgresql://postgres:difyai123456@localhost:5432/workforce
 ```
 
 ---
@@ -150,13 +150,13 @@ CREATE TABLE IF NOT EXISTS assets (
 
 ```bash
 # 连接测试
-psql postgresql://postgres:difyai123456@localhost:5432/dify -c "SELECT version();"
+psql postgresql://postgres:difyai123456@localhost:5432/workforce -c "SELECT version();"
 
 # 查看表
-psql postgresql://postgres:difyai123456@localhost:5432/dify -c "\dt"
+psql postgresql://postgres:difyai123456@localhost:5432/workforce -c "\dt"
 
 # 查看测试数据
-psql postgresql://postgres:difyai123456@localhost:5432/dify -c "SELECT * FROM runs;"
+psql postgresql://postgres:difyai123456@localhost:5432/workforce -c "SELECT * FROM runs;"
 ```
 
 ### 方式 2: 使用 Python
@@ -165,7 +165,7 @@ psql postgresql://postgres:difyai123456@localhost:5432/dify -c "SELECT * FROM ru
 source venv/bin/activate
 python -c "
 from core_engine.result_store import get_run
-run = get_run('test_run_001', 'postgresql://postgres:difyai123456@localhost:5432/dify')
+run = get_run('test_run_001', 'postgresql://postgres:difyai123456@localhost:5432/workforce')
 print(run)
 "
 ```
@@ -280,7 +280,7 @@ python scripts/init_pg_test_data.py
 
 ```bash
 # 注释掉 PostgreSQL
-# DATABASE_URL=postgresql://postgres:difyai123456@localhost:5432/dify
+# DATABASE_URL=postgresql://postgres:difyai123456@localhost:5432/workforce
 
 # 启用 SQLite
 DATABASE_URL=sqlite:///data/sim_engine.db

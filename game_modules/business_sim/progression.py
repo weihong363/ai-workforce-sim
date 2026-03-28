@@ -1,133 +1,73 @@
-"""Minimal player progression loop for business_sim."""
+"""Minimal player progression loop for business_sim (event-sourced persistence)."""
 
 from __future__ import annotations
 
-import json
-import os
-import threading
 from datetime import datetime, timezone
-from pathlib import Path
-from typing import Dict, List, Optional, Tuple
+from typing import Dict, Optional, Tuple
+
+from core_engine import user_store
+from core_engine.config import get_settings
 
 DEFAULT_STARTING_WALLET = 120.0
-DEFAULT_USER_STATE_FILE = "data/business_sim_users.json"
-
-_LOCK = threading.Lock()
 
 
 def _utc_now_iso() -> str:
     return datetime.now(timezone.utc).isoformat()
 
 
-def _state_path() -> Path:
-    configured = os.getenv("BUSINESS_SIM_USER_STATE_PATH", DEFAULT_USER_STATE_FILE)
-    return Path(configured)
+def _require_database_url() -> str:
+    db_url = get_settings().database_url
+    if not db_url:
+        raise RuntimeError("DATABASE_URL is required for player progression persistence")
+    return db_url
 
 
-def _load_state() -> Dict[str, object]:
-    path = _state_path()
-    if not path.exists():
-        return {"users": {}}
-    with path.open("r", encoding="utf-8") as fh:
-        payload = json.load(fh)
-    if not isinstance(payload, dict):
-        return {"users": {}}
-    users = payload.get("users")
-    if not isinstance(users, dict):
-        return {"users": {}}
-    return payload
+def _module_name() -> str:
+    return get_settings().active_game_module
 
 
-def _save_state(state: Dict[str, object]) -> None:
-    path = _state_path()
-    path.parent.mkdir(parents=True, exist_ok=True)
-    with path.open("w", encoding="utf-8") as fh:
-        json.dump(state, fh, ensure_ascii=True, indent=2)
+def _ensure_user(user_id: str, username: Optional[str] = None) -> Dict[str, object]:
+    db_url = _require_database_url()
+    module_name = _module_name()
+    existing = user_store.get_user_by_id(user_id, db_url, module_name=module_name)
+    if existing is not None:
+        return existing
 
+    resolved_username = username or user_id
+    if user_store.check_username_exists(resolved_username, db_url):
+        raise ValueError(f"Username '{resolved_username}' already exists")
 
-def _new_user(user_id: str, username: Optional[str] = None) -> Dict[str, object]:
-    safe_username = username or user_id
-    return {
-        "user_id": user_id,
-        "username": safe_username,
-        "wallet_balance": DEFAULT_STARTING_WALLET,
-        "tutorial_completed": False,
-        "owned_agents": [
-            {"agent_id": "junior_001", "preset": "junior_worker", "level": "junior"},
-        ],
-        "tutorial_progress": {"completed_tasks": []},
-        "task_history": [],
-        "created_at": _utc_now_iso(),
-        "updated_at": _utc_now_iso(),
-    }
+    user_store.create_user(
+        user_id=user_id,
+        username=resolved_username,
+        database_url=db_url,
+        wallet_balance=DEFAULT_STARTING_WALLET,
+        module_name=module_name,
+    )
+    created = user_store.get_user_by_id(user_id, db_url, module_name=module_name)
+    if created is None:
+        raise ValueError(f"Failed to create user '{user_id}'")
+    return created
 
 
 def init_user(user_id: str, username: Optional[str] = None) -> Dict[str, object]:
-    """Initialize or get a user.
-    
-    Args:
-        user_id: Unique user ID
-        username: Optional username. If provided and user doesn't exist, creates new user.
-                 If user exists, ignores the username parameter.
-    
-    Returns:
-        User data dictionary
-    """
-    with _LOCK:
-        state = _load_state()
-        users = state["users"]
-        if user_id not in users:
-            username = username or user_id
-            # Check username uniqueness
-            for existing_user in users.values():
-                if existing_user.get("username") == username:
-                    raise ValueError(f"Username '{username}' already exists")
-            users[user_id] = _new_user(user_id, username)
-            _save_state(state)
-        return dict(users[user_id])
+    """Initialize or get a user."""
+    return _ensure_user(user_id, username)
 
 
 def get_user(user_id: str) -> Dict[str, object]:
     """Get user by ID."""
-    return init_user(user_id)
+    return _ensure_user(user_id)
 
 
 def check_username_exists(username: str) -> bool:
-    """Check if a username already exists.
-    
-    Args:
-        username: Username to check
-    
-    Returns:
-        True if username exists, False otherwise
-    """
-    state = _load_state()
-    users = state.get("users", {})
-    for user_data in users.values():
-        if user_data.get("username") == username:
-            return True
-    return False
+    """Check if a username already exists."""
+    return user_store.check_username_exists(username, _require_database_url())
 
 
 def get_user_by_username(username: str) -> Optional[Dict[str, object]]:
-    """Get user data by username.
-    
-    Args:
-        username: Username to look up
-    
-    Returns:
-        User data dictionary if found, None otherwise
-    """
-    state = _load_state()
-    users = state.get("users", {})
-    for user_data in users.values():
-        if user_data.get("username") == username:
-            return dict(user_data)
-    return None
-
-
-def _touch(user: Dict[str, object]) -> None:
-    user["updated_at"] = _utc_now_iso()
+    """Get user data by username."""
+    return user_store.get_user_by_username(username, _require_database_url(), module_name=_module_name())
 
 
 def score_prompt_clarity(instructions: str, task_config: Dict[str, object]) -> float:
@@ -165,52 +105,82 @@ def score_prompt_clarity(instructions: str, task_config: Dict[str, object]) -> f
 
 def list_task_board(user_id: str, task_definitions: Dict[str, Dict[str, object]]) -> Dict[str, object]:
     user = get_user(user_id)
-    completed = set(user.get("tutorial_progress", {}).get("completed_tasks", []))
+    if not isinstance(user, dict):
+        user = {
+            "tutorial_progress": {"completed_tasks": []},
+            "tutorial_completed": False,
+        }
+
+    tutorial_progress = user.get("tutorial_progress")
+    if not isinstance(tutorial_progress, dict):
+        tutorial_progress = {}
+
+    completed_raw = tutorial_progress.get("completed_tasks", [])
+    completed = set(completed_raw if isinstance(completed_raw, list) else [])
+
     tutorial_tasks = [
-        {"task_name": name, **cfg}
+        {"task_id": name, **cfg}
         for name, cfg in task_definitions.items()
         if bool(cfg.get("is_tutorial", False))
     ]
     tutorial_tasks.sort(key=lambda item: int(item.get("tutorial_order", 9999)))
 
-    if not bool(user.get("tutorial_completed", False)):
-        next_tutorial = [task for task in tutorial_tasks if task["task_name"] not in completed][:1]
-        return {"locked": True, "tasks": next_tutorial}
-
     normal_tasks = [
-        {"task_name": name, **cfg}
+        {"task_id": name, **cfg}
         for name, cfg in task_definitions.items()
         if not bool(cfg.get("is_tutorial", False))
     ]
-    return {"locked": False, "tasks": normal_tasks}
+
+    if not bool(user.get("tutorial_completed", False)):
+        next_tutorial = [task for task in tutorial_tasks if task["task_id"] not in completed][:1]
+        return {
+            "locked": True,
+            "tutorial_tasks": tutorial_tasks,
+            "normal_tasks": normal_tasks,
+            "available_tasks": next_tutorial,
+            "tasks": next_tutorial,
+        }
+
+    return {
+        "locked": False,
+        "tutorial_tasks": tutorial_tasks,
+        "normal_tasks": normal_tasks,
+        "available_tasks": normal_tasks,
+        "tasks": normal_tasks,
+    }
 
 
 def estimate_task_cost(task_config: Dict[str, object]) -> float:
     return float(task_config.get("cost_estimate", 0.0) or 0.0)
 
 
-def charge_task_cost(user_id: str, task_name: str, cost: float) -> Dict[str, object]:
-    with _LOCK:
-        state = _load_state()
-        users = state["users"]
-        if user_id not in users:
-            users[user_id] = _new_user(user_id)
-        user = users[user_id]
-        wallet_before = float(user.get("wallet_balance", 0.0))
-        if wallet_before < cost:
-            raise ValueError(
-                f"Insufficient wallet balance. required={round(cost, 2)}, available={round(wallet_before, 2)}"
-            )
-        wallet_after = round(wallet_before - cost, 2)
-        user["wallet_balance"] = wallet_after
-        _touch(user)
-        _save_state(state)
-    return {
-        "task_name": task_name,
+def charge_task_cost(user_id: str, task_id: str, cost: float) -> Dict[str, object]:
+    db_url = _require_database_url()
+    module_name = _module_name()
+    user = _ensure_user(user_id)
+    wallet_before = float(user.get("wallet_balance", 0.0))
+    if wallet_before < cost:
+        raise ValueError(
+            f"Insufficient wallet balance. required={round(cost, 2)}, available={round(wallet_before, 2)}"
+        )
+
+    wallet_after = round(wallet_before - cost, 2)
+    event_payload = {
+        "task_id": task_id,
         "cost_spent": round(cost, 2),
         "wallet_before": round(wallet_before, 2),
         "wallet_after_cost": wallet_after,
     }
+    user_store.append_user_event(
+        user_id=user_id,
+        database_url=db_url,
+        module_name=module_name,
+        event_type="task_charged",
+        payload=event_payload,
+        task_id=task_id,
+    )
+
+    return event_payload
 
 
 def _build_explanation(success: bool, clarity: float, final_score: float, missed_constraints: int) -> str:
@@ -252,7 +222,7 @@ def resolve_task_outcome(
 
 def finalize_task_result(
     user_id: str,
-    task_name: str,
+    task_id: str,
     task_config: Dict[str, object],
     run_id: str,
     cost_spent: float,
@@ -260,52 +230,67 @@ def finalize_task_result(
     evaluation_score: float,
     missed_constraints: int,
 ) -> Dict[str, object]:
+    db_url = _require_database_url()
+    module_name = _module_name()
     outcome = resolve_task_outcome(
         task_config=task_config,
         evaluation_score=evaluation_score,
         clarity_score=clarity_score,
         missed_constraints=missed_constraints,
     )
-    with _LOCK:
-        state = _load_state()
-        users = state["users"]
-        if user_id not in users:
-            users[user_id] = _new_user(user_id)
-        user = users[user_id]
-        wallet_before_reward = float(user.get("wallet_balance", 0.0))
-        wallet_after = round(wallet_before_reward + float(outcome["reward"]), 2)
-        user["wallet_balance"] = wallet_after
 
-        tutorial_progress = user.setdefault("tutorial_progress", {"completed_tasks": []})
-        completed = tutorial_progress.setdefault("completed_tasks", [])
-        if bool(outcome["success"]) and bool(task_config.get("is_tutorial", False)) and task_name not in completed:
-            completed.append(task_name)
+    user = _ensure_user(user_id)
+    wallet_before_reward = float(user.get("wallet_balance", 0.0))
+    wallet_after = round(wallet_before_reward + float(outcome["reward"]), 2)
 
-        if not bool(user.get("tutorial_completed", False)):
-            tutorial_required = [
-                name
-                for name, cfg in task_config.get("_all_tasks", {}).items()
-                if bool(cfg.get("is_tutorial", False))
-            ]
-            user["tutorial_completed"] = all(name in completed for name in tutorial_required)
+    tutorial_progress = user.get("tutorial_progress")
+    if not isinstance(tutorial_progress, dict):
+        tutorial_progress = {"completed_tasks": []}
 
-        history = user.setdefault("task_history", [])
-        history.append(
-            {
-                "run_id": run_id,
-                "task_name": task_name,
-                "success": bool(outcome["success"]),
-                "clarity_score": clarity_score,
-                "effective_score": outcome["effective_score"],
-                "cost_spent": round(cost_spent, 2),
-                "reward_gained": float(outcome["reward"]),
-                "net_result": round(float(outcome["reward"]) - cost_spent, 2),
-                "wallet_after": wallet_after,
-                "created_at": _utc_now_iso(),
-            }
-        )
-        _touch(user)
-        _save_state(state)
+    completed = tutorial_progress.get("completed_tasks")
+    if not isinstance(completed, list):
+        completed = []
+
+    if bool(outcome["success"]) and bool(task_config.get("is_tutorial", False)) and task_id not in completed:
+        completed = [*completed, task_id]
+
+    tutorial_completed = bool(user.get("tutorial_completed", False))
+    if not tutorial_completed:
+        tutorial_required = [
+            name
+            for name, cfg in task_config.get("_all_tasks", {}).items()
+            if bool(cfg.get("is_tutorial", False))
+        ]
+        tutorial_completed = all(name in completed for name in tutorial_required)
+
+    history_record = {
+        "run_id": run_id,
+        "task_id": task_id,
+        "success": bool(outcome["success"]),
+        "clarity_score": clarity_score,
+        "effective_score": outcome["effective_score"],
+        "cost_spent": round(cost_spent, 2),
+        "reward_gained": float(outcome["reward"]),
+        "net_result": round(float(outcome["reward"]) - cost_spent, 2),
+        "wallet_after": wallet_after,
+        "created_at": _utc_now_iso(),
+    }
+
+    event_payload = {
+        **history_record,
+        "tutorial_completed": tutorial_completed,
+        "completed_tutorial_tasks": completed,
+    }
+
+    user_store.append_user_event(
+        user_id=user_id,
+        database_url=db_url,
+        module_name=module_name,
+        event_type="task_finished",
+        payload=event_payload,
+        run_id=run_id,
+        task_id=task_id,
+    )
 
     return {
         "success": bool(outcome["success"]),
@@ -315,19 +300,19 @@ def finalize_task_result(
         "clarity_score": clarity_score,
         "effective_score": float(outcome["effective_score"]),
         "explanation": str(outcome["explanation"]),
-        "tutorial_completed": bool(user.get("tutorial_completed", False)),
+        "tutorial_completed": tutorial_completed,
     }
 
 
-def tutorial_allows_task(user_id: str, task_name: str, task_definitions: Dict[str, Dict[str, object]]) -> Tuple[bool, str]:
+def tutorial_allows_task(user_id: str, task_id: str, task_definitions: Dict[str, Dict[str, object]]) -> Tuple[bool, str]:
     user = get_user(user_id)
-    is_tutorial_task = bool(task_definitions.get(task_name, {}).get("is_tutorial", False))
+    is_tutorial_task = bool(task_definitions.get(task_id, {}).get("is_tutorial", False))
     if user.get("tutorial_completed", False):
         return True, ""
     if is_tutorial_task:
         board = list_task_board(user_id=user_id, task_definitions=task_definitions)
-        available = [item["task_name"] for item in board.get("tasks", [])]
-        if task_name in available:
+        available = [item["task_id"] for item in board.get("tasks", [])]
+        if task_id in available:
             return True, ""
         return False, "Tutorial is guided. Complete the current tutorial task first."
     return False, "Complete tutorial tasks first to unlock the normal task board."

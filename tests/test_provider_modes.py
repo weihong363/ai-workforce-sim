@@ -33,12 +33,13 @@ def test_mock_mode_smoke(monkeypatch) -> None:
 def test_real_provider_mode_integration_path(monkeypatch) -> None:
     if os.getenv("RUN_REAL_PROVIDER_TEST") != "1":
         pytest.skip("Set RUN_REAL_PROVIDER_TEST=1 to run real provider integration path.")
-    if not os.getenv("OPENAI_API_KEY"):
-        pytest.skip("OPENAI_API_KEY is required for real provider integration path.")
+    if not (os.getenv("PROVIDER_OPENAI_API_KEY") or os.getenv("OPENAI_API_KEY")):
+        pytest.skip("PROVIDER_OPENAI_API_KEY or OPENAI_API_KEY is required for real provider integration path.")
 
     _patch_persistence(monkeypatch)
     monkeypatch.setenv("USE_MOCK_PROVIDER", "false")
-    monkeypatch.setenv("LLM_PROVIDER", "openai")
+    monkeypatch.setenv("DEFAULT_PROVIDER", "openai")
+    monkeypatch.setenv("PROVIDER_FOR_TASK", "openai")
     monkeypatch.setenv("ENABLE_AGENT_CACHE", "false")
     monkeypatch.setenv("ENABLE_EVALUATION_CACHE", "false")
 

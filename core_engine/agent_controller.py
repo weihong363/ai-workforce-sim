@@ -68,11 +68,27 @@ class AgentController:
             return cls._semaphore_pool[key]
 
     def build_prompt(self, agent_name: str, task_input: str, previous_output: str) -> str:
+        lower_input = str(task_input).lower()
+        needs_constraint_complete = any(
+            marker in lower_input
+            for marker in (
+                "return json only",
+                "constraints",
+                "include_key:",
+                "min_numbers:",
+                "at least",
+            )
+        )
+        output_rule = (
+            "Cover every explicit constraint in full detail."
+            if needs_constraint_complete
+            else "Produce a short business-focused response."
+        )
         return (
             f"Agent: {agent_name}\n"
             f"Task Input: {task_input}\n"
             f"Previous Output: {previous_output or 'None'}\n"
-            "Produce a short business-focused response."
+            f"{output_rule}"
         )
 
     @staticmethod
