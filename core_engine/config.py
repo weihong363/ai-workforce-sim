@@ -27,6 +27,13 @@ class Settings:
     task_result_cache_ttl_seconds: int
     task_cache_delay_min_ms: int
     task_cache_delay_max_ms: int
+    obedience_weight: float
+    initiative_weight: float
+    effort_weight: float
+    clarity_impact_weight: float
+    task_token_budget_multiplier: float
+    agent_token_budget_multiplier: float
+    agent_cost_weight_overrides: Dict[str, float]
 
     provider_connections: Dict[str, Dict[str, object]]
     provider_for_purpose: Dict[str, str]
@@ -113,6 +120,11 @@ def _to_float(value: Optional[str], default: float) -> float:
         return float(value)
     except ValueError:
         return default
+
+
+def _positive_float(value: Optional[str], default: float) -> float:
+    parsed = _to_float(value, default)
+    return parsed if parsed > 0 else default
 
 
 def _json_or_default(raw: Optional[str], default: Mapping[str, object]) -> Dict[str, object]:
@@ -235,6 +247,17 @@ def get_settings(force_reload: bool = False) -> Settings:
         task_result_cache_ttl_seconds=_to_int(os.getenv("TASK_RESULT_CACHE_TTL_SECONDS"), 600),
         task_cache_delay_min_ms=_to_int(os.getenv("TASK_CACHE_DELAY_MIN_MS"), 60),
         task_cache_delay_max_ms=_to_int(os.getenv("TASK_CACHE_DELAY_MAX_MS"), 180),
+        obedience_weight=_to_float(os.getenv("OBEDIENCE_WEIGHT"), 1.0),
+        initiative_weight=_to_float(os.getenv("INITIATIVE_WEIGHT"), 1.0),
+        effort_weight=_to_float(os.getenv("EFFORT_WEIGHT"), 1.0),
+        clarity_impact_weight=_to_float(os.getenv("CLARITY_IMPACT_WEIGHT"), 0.35),
+        task_token_budget_multiplier=_positive_float(os.getenv("TASK_TOKEN_BUDGET_MULTIPLIER"), 1.0),
+        agent_token_budget_multiplier=_positive_float(os.getenv("AGENT_TOKEN_BUDGET_MULTIPLIER"), 1.0),
+        agent_cost_weight_overrides={
+            str(k): float(v)
+            for k, v in _json_or_default(os.getenv("AGENT_COST_WEIGHT_JSON"), {}).items()
+            if isinstance(v, (int, float))
+        },
         provider_connections=connections,
         provider_for_purpose={
             "task": provider_for_task,

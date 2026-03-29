@@ -207,11 +207,15 @@ def resolve_task_outcome(
 ) -> Dict[str, object]:
     is_tutorial = bool(task_config.get("is_tutorial", False))
     threshold = 55.0 if is_tutorial else 72.0
-    effective_score = round(evaluation_score * (0.65 + (0.35 * clarity_score)), 2)
-    too_vague = clarity_score < (0.12 if is_tutorial else 0.20)
+    settings = get_settings()
+    clarity_weight = max(0.0, min(1.0, float(settings.clarity_impact_weight)))
+    base_weight = 1.0 - clarity_weight
+    clarity_penalty = max(0.0, 0.45 - clarity_score) * 25.0
+    effective_score = round((evaluation_score * (base_weight + (clarity_weight * clarity_score))) - clarity_penalty, 2)
+    too_vague = clarity_score < (0.15 if is_tutorial else 0.28)
     success = (effective_score >= threshold) and not too_vague
     reward_base = float(task_config.get("reward", 0.0) or 0.0)
-    reward = round(reward_base * (0.75 + 0.25 * clarity_score), 2) if success else 0.0
+    reward = round(reward_base * (0.50 + 0.90 * clarity_score), 2) if success else 0.0
     return {
         "success": success,
         "effective_score": effective_score,

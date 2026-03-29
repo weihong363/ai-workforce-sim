@@ -10,7 +10,7 @@ from urllib.parse import urlparse
 import psycopg2
 from psycopg2.extras import RealDictCursor
 
-from core_engine.id_generator import generate_task_record_id, normalize_id
+from core_engine.id_generator import normalize_id
 
 
 def _get_connection(database_url: str):
@@ -34,17 +34,30 @@ def init_task_db(database_url: str) -> None:
     conn = _get_connection(database_url)
     cursor = conn.cursor(cursor_factory=RealDictCursor)
     try:
+        # Destructive reset for simplified schema:
+        # game_tasks.id is the only logical task identifier.
+        cursor.execute(
+            """
+            SELECT EXISTS (
+                SELECT 1
+                FROM information_schema.columns
+                WHERE table_name = 'game_tasks' AND column_name = 'task_id'
+            ) AS has_legacy_task_id
+            """
+        )
+        legacy = cursor.fetchone() or {}
+        if bool(legacy.get("has_legacy_task_id")):
+            cursor.execute("DROP TABLE IF EXISTS game_tasks")
+
         cursor.execute(
             """
             CREATE TABLE IF NOT EXISTS game_tasks (
                 id TEXT PRIMARY KEY,
                 module_name TEXT NOT NULL,
-                task_id TEXT NOT NULL,
                 task_config_json JSONB NOT NULL,
                 source TEXT NOT NULL DEFAULT 'seed',
                 created_at TIMESTAMPTZ NOT NULL,
-                updated_at TIMESTAMPTZ NOT NULL,
-                UNIQUE(module_name, task_id)
+                updated_at TIMESTAMPTZ NOT NULL
             )
             """
         )
@@ -87,17 +100,17 @@ def upsert_task(
     try:
         cursor.execute(
             """
-            INSERT INTO game_tasks (id, module_name, task_id, task_config_json, source, created_at, updated_at)
-            VALUES (%s, %s, %s, %s, %s, %s, %s)
-            ON CONFLICT (module_name, task_id) DO UPDATE SET
+            INSERT INTO game_tasks (id, module_name, task_config_json, source, created_at, updated_at)
+            VALUES (%s, %s, %s, %s, %s, %s)
+            ON CONFLICT (id) DO UPDATE SET
+                module_name = EXCLUDED.module_name,
                 task_config_json = EXCLUDED.task_config_json,
                 source = EXCLUDED.source,
                 updated_at = EXCLUDED.updated_at
             """,
             (
-                generate_task_record_id(),
-                module_name,
                 task_id,
+                module_name,
                 json.dumps(task_config, ensure_ascii=True),
                 source,
                 now,
@@ -126,10 +139,10 @@ def list_tasks(database_url: str, module_name: str) -> Dict[str, Dict[str, objec
     try:
         cursor.execute(
             """
-            SELECT task_id, task_config_json
+            SELECT id, task_config_json
             FROM game_tasks
             WHERE module_name = %s
-            ORDER BY task_id ASC
+            ORDER BY id ASC
             """,
             (module_name,),
         )
@@ -144,7 +157,7 @@ def list_tasks(database_url: str, module_name: str) -> Dict[str, Dict[str, objec
                 except (json.JSONDecodeError, TypeError, ValueError):
                     continue
             if isinstance(parsed, dict):
-                result[str(row["task_id"])] = parsed
+                result[str(row["id"])] = parsed
         return result
     finally:
         cursor.close()
@@ -161,7 +174,7 @@ def get_task(database_url: str, module_name: str, task_id: str) -> Optional[Dict
             """
             SELECT task_config_json
             FROM game_tasks
-            WHERE module_name = %s AND task_id = %s
+            WHERE module_name = %s AND id = %s
             LIMIT 1
             """,
             (module_name, task_id),

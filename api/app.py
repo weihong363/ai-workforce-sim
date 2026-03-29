@@ -1,12 +1,15 @@
 """FastAPI routes for running tasks and reading persisted data."""
 
 from contextlib import asynccontextmanager
+import os
 from pathlib import Path
 from typing import AsyncGenerator, Optional
 
 import structlog
 from dotenv import load_dotenv
 from fastapi import BackgroundTasks, FastAPI, HTTPException
+from fastapi.middleware.cors import CORSMiddleware
+from fastapi.responses import FileResponse
 
 from api.run_task import (
     benchmark_models,
@@ -15,8 +18,10 @@ from api.run_task import (
     init_runtime_run,
     mark_runtime_failed,
     run_task,
+    tuning_parameter_scan,
 )
-from api.schemas import BenchmarkRequest, ErrorResponse, RunTaskRequest
+from api.schemas import BenchmarkMatrixRequest, BenchmarkRequest, ErrorResponse, RunTaskRequest
+from api.schemas import DebugTuningPatchRequest, TuningScanRequest
 from api.users import router as users_router
 from core_engine.config import get_settings
 from core_engine.errors import ExecutionError
@@ -24,6 +29,7 @@ from core_engine.logging_utils import setup_logging
 from core_engine.module_facade import ModuleFacade
 from core_engine.module_loader import ModuleLoadError
 from core_engine.result_store import create_run, get_asset, get_run
+from core_engine.tuning import get_effective_tuning, get_tuning_overrides, update_tuning
 
 # Load environment variables from .env file
 env_path = Path(__file__).parent.parent / ".env"
@@ -31,6 +37,35 @@ load_dotenv(dotenv_path=env_path)
 
 # Initialize logging
 setup_logging(level="INFO", json_format=True)
+OUTPUT_PREVIEW_CHARS = 280
+
+
+def _preview_text(value: object, limit: int = OUTPUT_PREVIEW_CHARS) -> tuple[str, bool, int]:
+    raw = str(value or "")
+    truncated = len(raw) > limit
+    return (raw[:limit] + (" ..." if truncated else ""), truncated, len(raw))
+
+
+def _with_output_previews(run_payload: dict) -> dict:
+    payload = dict(run_payload)
+    steps = payload.get("workflow_steps", [])
+    if not isinstance(steps, list):
+        return payload
+    rewritten = []
+    for step in steps:
+        if not isinstance(step, dict):
+            rewritten.append(step)
+            continue
+        copied = dict(step)
+        preview, truncated, full_len = _preview_text(copied.get("output", ""))
+        copied["output"] = preview
+        copied["raw_output_preview"] = preview
+        copied["full_output_length"] = full_len
+        copied["truncated_for_display"] = truncated
+        copied["stored_full_output"] = True
+        rewritten.append(copied)
+    payload["workflow_steps"] = rewritten
+    return payload
 
 
 @asynccontextmanager
@@ -106,6 +141,24 @@ async def lifespan(app: FastAPI) -> AsyncGenerator[None, None]:
 
 app = FastAPI(title="AI Workforce Sim MVP API", lifespan=lifespan)
 
+# CORS for local frontend development and configurable deployments.
+_cors_origins_raw = os.getenv("CORS_ALLOW_ORIGINS", "*").strip()
+if _cors_origins_raw == "*":
+    _cors_origins = ["*"]
+else:
+    _cors_origins = [item.strip() for item in _cors_origins_raw.split(",") if item.strip()]
+if not _cors_origins:
+    _cors_origins = ["*"]
+_cors_allow_credentials = _cors_origins != ["*"]
+
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=_cors_origins,
+    allow_credentials=_cors_allow_credentials,
+    allow_methods=["*"],
+    allow_headers=["*"],
+)
+
 # Include user management routes
 app.include_router(users_router)
 
@@ -136,6 +189,7 @@ def run_task_route(request: RunTaskRequest, background_tasks: BackgroundTasks) -
             task_id=request.task_id,
             module_name=selected_module,
             database_url=settings.database_url,
+            user_id=request.user_id,
         )
         init_runtime_run(run_id=run_id, task_id=request.task_id, module_name=selected_module)
 
@@ -180,16 +234,18 @@ def get_run_route(run_id: str) -> dict:
         merged["status"] = runtime.get("status", run.get("status"))
         merged["workflow_steps"] = runtime.get("workflow_steps", run.get("workflow_steps", []))
         merged["total_cost"] = runtime.get("total_cost", run.get("total_cost", 0.0))
-        return merged
+        return _with_output_previews(merged)
 
     if runtime is not None and runtime.get("result"):
         merged = dict(run)
         runtime_result = runtime.get("result", {})
-        if isinstance(runtime_result, dict) and "player_result" in runtime_result:
-            merged["player_result"] = runtime_result["player_result"]
-        return merged
+        if isinstance(runtime_result, dict):
+            for key in ("player_result", "score_breakdown", "penalties", "effective_parameters", "semantic_analysis"):
+                if key in runtime_result:
+                    merged[key] = runtime_result[key]
+        return _with_output_previews(merged)
 
-    return run
+    return _with_output_previews(run)
 
 
 @app.get("/assets/{asset_id}", responses={404: {"model": ErrorResponse}})
@@ -225,3 +281,161 @@ def benchmark_models_route(request: BenchmarkRequest) -> dict:
         )
     except Exception as exc:
         raise HTTPException(status_code=500, detail=str(exc)) from exc
+
+
+@app.post("/debug/benchmark")
+def benchmark_matrix_route(request: BenchmarkMatrixRequest) -> dict:
+    settings = get_settings()
+    try:
+        from api.run_task import benchmark_matrix
+
+        return benchmark_matrix(
+            task_id=request.task_id,
+            module_name=settings.active_game_module,
+            agent_levels=request.agent_levels,
+            models=request.models,
+            user_instruction_variants=request.user_instruction_variants,
+            repeats=request.repeats,
+            task_definition=request.task_definition,
+        )
+    except Exception as exc:
+        raise HTTPException(status_code=500, detail=str(exc)) from exc
+
+
+@app.get("/debug/tuning")
+def get_tuning_route() -> dict:
+    settings = get_settings()
+    return {
+        "effective_parameters": get_effective_tuning(settings),
+        "overrides": get_tuning_overrides(),
+    }
+
+
+@app.get("/debug/tuning-ui")
+def get_tuning_ui_route() -> FileResponse:
+    ui_path = Path(__file__).parent / "static" / "tuning-ui.html"
+    if not ui_path.exists():
+        raise HTTPException(status_code=500, detail="tuning-ui.html not found")
+    return FileResponse(path=ui_path, media_type="text/html")
+
+
+@app.patch("/debug/tuning")
+def patch_tuning_route(request: DebugTuningPatchRequest) -> dict:
+    settings = get_settings()
+    patch = {k: v for k, v in request.model_dump(exclude_none=True).items()}
+    try:
+        effective = update_tuning(patch, settings)
+    except ValueError as exc:
+        raise HTTPException(status_code=400, detail=str(exc)) from exc
+    return {
+        "effective_parameters": effective,
+        "overrides": get_tuning_overrides(),
+    }
+
+
+@app.post("/debug/tuning-scan")
+def tuning_scan_route(request: TuningScanRequest) -> dict:
+    settings = get_settings()
+    try:
+        return tuning_parameter_scan(
+            task_id=request.task_id,
+            module_name=settings.active_game_module,
+            clarity_penalty_weights=request.clarity_penalty_weights,
+            constraint_penalty_weights=request.constraint_penalty_weights,
+            reward_multipliers=request.reward_multipliers,
+            models=request.models,
+        )
+    except Exception as exc:
+        raise HTTPException(status_code=500, detail=str(exc)) from exc
+
+
+@app.get("/debug/run/{run_id}")
+def debug_run_route(run_id: str) -> dict:
+    settings = get_settings()
+    try:
+        run = get_run(run_id, settings.database_url)
+    except ValueError as exc:
+        raise HTTPException(status_code=400, detail=str(exc)) from exc
+
+    if run is None:
+        raise HTTPException(status_code=404, detail=f"Run '{run_id}' not found.")
+
+    preview_run = _with_output_previews(run)
+    steps = preview_run.get("workflow_steps", []) if isinstance(preview_run.get("workflow_steps"), list) else []
+    agent_effects: dict = {}
+    cost_breakdown_by_model: dict = {}
+    total_step_cost = 0.0
+    total_step_tokens = 0
+    total_step_latency = 0
+
+    for step in steps:
+        if not isinstance(step, dict):
+            continue
+        agent = str(step.get("agent_name", "unknown"))
+        eff = step.get("effective_attributes", {}) if isinstance(step.get("effective_attributes"), dict) else {}
+        token_usage = step.get("token_usage", {}) if isinstance(step.get("token_usage"), dict) else {}
+        cost = float(step.get("cost", 0.0) or 0.0)
+        latency = int(step.get("latency_ms", 0) or 0)
+        tokens = int(token_usage.get("total_tokens", 0) or 0)
+        total_step_cost += cost
+        total_step_tokens += tokens
+        total_step_latency += latency
+
+        bucket = agent_effects.setdefault(
+            agent,
+            {"steps": 0, "cost": 0.0, "tokens": 0, "latency_ms": 0, "avg_traits": {"obedience": 0.0, "initiative": 0.0, "effort": 0.0, "affinity": 0.0}},
+        )
+        bucket["steps"] += 1
+        bucket["cost"] += cost
+        bucket["tokens"] += tokens
+        bucket["latency_ms"] += latency
+        for key in ("obedience", "initiative", "effort", "affinity"):
+            bucket["avg_traits"][key] += float(eff.get(key, 0.0) or 0.0)
+
+        mk = f"{step.get('provider', 'unknown')}::{step.get('model', 'unknown')}"
+        model_bucket = cost_breakdown_by_model.setdefault(mk, {"cost": 0.0, "tokens": 0, "steps": 0})
+        model_bucket["cost"] += cost
+        model_bucket["tokens"] += tokens
+        model_bucket["steps"] += 1
+
+    for _, bucket in agent_effects.items():
+        n = max(1, int(bucket["steps"]))
+        for key in ("obedience", "initiative", "effort", "affinity"):
+            bucket["avg_traits"][key] = round(float(bucket["avg_traits"][key]) / n, 4)
+        bucket["cost"] = round(float(bucket["cost"]), 8)
+
+    run_summary = {
+        "run_id": run.get("run_id"),
+        "user_id": run.get("user_id"),
+        "task_id": run.get("task_id"),
+        "status": run.get("status"),
+        "total_cost": run.get("total_cost"),
+        "total_tokens": run.get("total_tokens"),
+        "total_latency_ms": run.get("total_latency_ms"),
+    }
+
+    behavior_analysis = {
+        "clarity_score": run.get("clarity_score"),
+        "deviation_detected": run.get("deviation_detected"),
+        "constraint_adherence_score": run.get("constraint_adherence_score"),
+        "final_score": run.get("final_score"),
+        "semantic_analysis": run.get("semantic_analysis", {}),
+        "score_breakdown": run.get("score_breakdown", {}),
+        "penalties": run.get("penalties", {}),
+        "effective_parameters": run.get("effective_parameters", {}),
+    }
+
+    cost_breakdown = {
+        "total_cost_from_steps": round(total_step_cost, 8),
+        "total_tokens_from_steps": total_step_tokens,
+        "total_latency_ms_from_steps": total_step_latency,
+        "by_model": cost_breakdown_by_model,
+    }
+
+    return {
+        "run_summary": run_summary,
+        "steps": steps,
+        "agent_effects": agent_effects,
+        "cost_breakdown": cost_breakdown,
+        "behavior_analysis": behavior_analysis,
+    }

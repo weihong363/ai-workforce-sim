@@ -94,9 +94,9 @@ def _seed_demo_data(database_url: str) -> None:
             INSERT INTO workflow_steps (
                 id, run_id, step_index, agent_name, prompt, output, provider, model,
                 prompt_tokens, completion_tokens, total_tokens, cost, cache_hit,
-                effective_effort, effective_obedience, effective_initiative, effective_affinity,
+                effective_effort, effective_obedience, effective_initiative,
                 affinity_before, affinity_after, created_at
-            ) VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s)
+            ) VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s)
             """,
             (
                 "step_001_1",
@@ -112,7 +112,6 @@ def _seed_demo_data(database_url: str) -> None:
                 int(token_usage.get("total_tokens", 0)),
                 0.001,
                 0,
-                None,
                 None,
                 None,
                 None,

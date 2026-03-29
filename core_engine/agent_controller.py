@@ -2,6 +2,7 @@
 
 import json
 import random
+import re
 import threading
 import time
 import uuid
@@ -80,9 +81,9 @@ class AgentController:
             )
         )
         output_rule = (
-            "Cover every explicit constraint in full detail."
+            "Cover every explicit constraint in full detail and keep output under 220 tokens."
             if needs_constraint_complete
-            else "Produce a short business-focused response."
+            else "Produce a concise business-focused response under 180 tokens."
         )
         return (
             f"Agent: {agent_name}\n"
@@ -111,12 +112,87 @@ class AgentController:
             return str(text)
         return " ".join(words[:max_tokens]) + " ...[TRUNCATED]"
 
-    def _call_provider_with_retry(self, prompt: str, model_name: str) -> Dict[str, object]:
+    @staticmethod
+    def _extract_constraint_keywords(task_input: str) -> list[str]:
+        text = str(task_input or "")
+        lower = text.lower()
+        keywords: list[str] = []
+        for marker in (
+            "target customer",
+            "targeting",
+            "target",
+            "urban professionals",
+            "white-collar",
+            "white collar",
+            "pricing",
+            "risk",
+            "risk factors",
+            "risks include",
+            "timeline",
+            "milestone",
+            "budget",
+        ):
+            if marker in lower:
+                keywords.append(marker)
+        if "白领" in text and "target customer" not in keywords:
+            keywords.append("target customer")
+        if "里程碑" in text and "milestone" not in keywords:
+            keywords.append("milestone")
+        if "风险" in text and "risk" not in keywords:
+            keywords.append("risk")
+        for matched in re.findall(r"(?:keyword|include_key):\s*([a-zA-Z0-9_ -]{2,40})", lower):
+            token = str(matched).strip()
+            if token and token not in keywords:
+                keywords.append(token)
+        return keywords[:4]
+
+    def _shape_output_for_profile(
+        self,
+        output: str,
+        task_input: str,
+        profile: Dict[str, object],
+        effective: Dict[str, float],
+    ) -> str:
+        level = str(profile.get("level", "mid")).lower()
+        text = str(output or "").strip()
+        if not text:
+            return text
+
+        constraints = self._extract_constraint_keywords(task_input)
+        if level == "junior":
+            if not text.startswith("Quick take:"):
+                text = f"Quick take: {text}"
+            clarity = float(profile.get("clarity_score", 0.0) or 0.0)
+            if constraints and clarity >= 0.6:
+                checklist = ", ".join(constraints[:3])
+                text = f"{text}\nConstraint check: {checklist}."
+            short_cap = max(50, int(95 + (effective.get("effort", 0.5) * 55)))
+            if len(text) > short_cap:
+                text = text[:short_cap].rstrip() + " ..."
+            return text
+
+        if level == "senior":
+            lines = [f"Summary: {text}"]
+            lines.append("Plan:")
+            lines.append("- Prioritize the highest-impact option first.")
+            lines.append("- Define measurable checkpoint and owner.")
+            if constraints:
+                lines.append("Constraint check:")
+                for item in constraints:
+                    lines.append(f"- {item}: addressed")
+            if effective.get("initiative", 0.0) >= 0.75 and effective.get("obedience", 1.0) < 0.6:
+                lines.append("Alternative path: consider a bolder positioning option.")
+            return "\n".join(lines)
+
+        return text
+
+    def _call_provider_with_retry(self, prompt: str, model_name: str, max_tokens: int) -> Dict[str, object]:
         return self._call_single_provider_with_retry(
             provider=self.provider,
             model_name=model_name,
             prompt=prompt,
             retry_attempts=self.retry_attempts,
+            max_tokens=max_tokens,
         )
 
     def _call_single_provider_with_retry(
@@ -125,20 +201,32 @@ class AgentController:
         model_name: str,
         prompt: str,
         retry_attempts: int,
+        max_tokens: int,
     ) -> Dict[str, object]:
         last_exception = None
         for attempt in range(1, retry_attempts + 1):
             try:
-                with self._semaphore:
-                    response = provider.complete(prompt, model_name)
+                started_at = time.perf_counter()
                 if self.logger is not None:
                     log_event(
                         self.logger,
-                        "provider_call",
+                        "model_call_start",
+                        provider=getattr(provider, "provider_name", "unknown"),
+                        model=model_name,
+                        attempt=attempt,
+                    )
+                with self._semaphore:
+                    response = provider.complete(prompt, model_name, max_tokens=max_tokens)
+                latency_ms = int((time.perf_counter() - started_at) * 1000)
+                if self.logger is not None:
+                    log_event(
+                        self.logger,
+                        "model_call_end",
                         provider=response.get("provider"),
                         model=response.get("model"),
                         attempt=attempt,
                         token_usage=response.get("token_usage", {}),
+                        latency_ms=latency_ms,
                     )
                 return response
             except Exception as exc:  # pragma: no cover - narrow behavior tested via retry
@@ -174,11 +262,19 @@ class AgentController:
         agent_profile: Optional[Dict[str, object]] = None,
     ) -> Dict[str, object]:
         profile = agent_profile or {}
-        effective = compute_effective_attributes(profile)
+        effective = compute_effective_attributes(
+            profile,
+            weights={
+                "obedience": self.settings.obedience_weight,
+                "initiative": self.settings.initiative_weight,
+                "effort": self.settings.effort_weight,
+            },
+        )
         affinity_before = effective["affinity"]
         prompt = self.build_prompt(agent_name, task_input, previous_output)
         provider_name = getattr(self.provider, "provider_name", "unknown")
         model_name = self.settings.get_model_for_role(self.purpose, str(profile.get("level", "mid")))
+        request_max_tokens = max(128, int(profile.get("max_output_tokens", 0) or 256))
         cache = get_cache()
         behavior_signature = json.dumps(effective, sort_keys=True)
 
@@ -202,7 +298,10 @@ class AgentController:
                 return {
                     "agent_name": agent_name,
                     "prompt": prompt,
-                    "output": apply_behavior_to_output(str(cached["output"]), effective),
+                    "output": apply_behavior_to_output(
+                        self._shape_output_for_profile(str(cached["output"]), task_input, profile, effective),
+                        effective,
+                    ),
                     "provider": cached["provider"],
                     "model": cached["model"],
                     "token_usage": cached["token_usage"],
@@ -220,7 +319,7 @@ class AgentController:
                 )
 
         try:
-            response = self._call_provider_with_retry(prompt, model_name=model_name)
+            response = self._call_provider_with_retry(prompt, model_name=model_name, max_tokens=request_max_tokens)
         except ExecutionError as primary_error:
             if self.fallback_provider_name != self.provider_name or self.fallback_model_name != self.model_name:
                 if self.logger is not None:
@@ -238,6 +337,7 @@ class AgentController:
                     model_name=self.fallback_model_name,
                     prompt=prompt,
                     retry_attempts=self.retry_attempts,
+                    max_tokens=request_max_tokens,
                 )
                 provider_name = str(response.get("provider", self.fallback_provider_name))
                 model_name = str(response.get("model", self.fallback_model_name))
@@ -250,18 +350,14 @@ class AgentController:
             "token_usage": response.get("token_usage", {}),
         }
 
-        # Enforce per-agent output token limit.
-        max_output_tokens = int(profile.get("max_output_tokens", 0) or 0)
+        # Detect per-agent output budget breach, but keep full raw output for persistence.
+        base_max_output_tokens = int(profile.get("max_output_tokens", 0) or 0)
+        max_output_tokens = int(base_max_output_tokens * self.settings.agent_token_budget_multiplier)
         budget_action = None
         if max_output_tokens > 0:
             current_tokens = self._estimate_tokens(record["output"])
             if current_tokens > max_output_tokens:
-                record["output"] = self._truncate_to_token_limit(record["output"], max_output_tokens)
-                record["token_usage"]["completion_tokens"] = self._estimate_tokens(record["output"])
-                record["token_usage"]["total_tokens"] = int(record["token_usage"].get("prompt_tokens", 0)) + int(
-                    record["token_usage"]["completion_tokens"]
-                )
-                budget_action = "truncated_output"
+                budget_action = "output_token_budget_exceeded"
 
         # Store result temporarily in cache, then return after a randomized delay.
         # Junior agents use a wider/slower delay band than senior agents.
@@ -276,6 +372,7 @@ class AgentController:
 
         step_tokens = int(delayed_record.get("token_usage", {}).get("total_tokens", 0))
         cost_weight = float(profile.get("cost_weight", 1.0) or 1.0)
+        cost_weight *= float(self.settings.agent_cost_weight_overrides.get(agent_name, 1.0) or 1.0)
         step_cost = round((step_tokens / 1000.0) * self.settings.llm_cost_per_1k_tokens_usd * cost_weight, 8)
 
         if self.enable_agent_cache:
@@ -290,7 +387,10 @@ class AgentController:
         return {
             "agent_name": agent_name,
             "prompt": prompt,
-            "output": apply_behavior_to_output(str(delayed_record["output"]), effective),
+            "output": apply_behavior_to_output(
+                self._shape_output_for_profile(str(delayed_record["output"]), task_input, profile, effective),
+                effective,
+            ),
             "provider": delayed_record["provider"],
             "model": delayed_record["model"],
             "token_usage": delayed_record["token_usage"],

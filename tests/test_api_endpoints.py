@@ -109,6 +109,15 @@ def test_debug_compare_and_benchmark_smoke(monkeypatch) -> None:
     assert bm_resp.status_code == 200
 
 
+def test_debug_tuning_ui_page_smoke() -> None:
+    with TestClient(app_module.app) as client:
+        resp = client.get("/debug/tuning-ui")
+    assert resp.status_code == 200
+    assert "text/html" in resp.headers.get("content-type", "")
+    assert "Tuning Panel" in resp.text
+    assert "Benchmark Runner" in resp.text
+
+
 def test_users_endpoints_npe_safety(monkeypatch) -> None:
     class _Progression:
         def check_username_exists(self, username: str):
@@ -200,4 +209,3 @@ def test_task_board_includes_all_tasks(monkeypatch) -> None:
     assert "all_tasks" in data
     assert len(data["all_tasks"]) == 2
     assert data["all_tasks"][0]["task_id"] == "tutorial_define_goal"
-
