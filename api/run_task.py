@@ -549,7 +549,7 @@ def run_task(
                 deviation_cached = bool(comparison_fields.get("deviation_detected", False))
                 update_run_status(
                     run_id=run_id,
-                    status="completed",
+                    status="success",
                     database_url=settings.database_url,
                     final_score=float(cached.get("evaluation", {}).get("final_score", 0.0) or 0.0),
                     total_cost=float(cached.get("total_cost", 0.0) or 0.0),
@@ -564,7 +564,7 @@ def run_task(
                     "run_id": run_id,
                     "user_id": user_id,
                     "task_id": task_id,
-                    "status": "completed",
+                    "status": "success",
                     "total_cost": float(cached.get("total_cost", 0.0) or 0.0),
                     "total_tokens": total_tokens_cached,
                     "total_latency_ms": total_latency_cached,
@@ -574,7 +574,7 @@ def run_task(
                 }
                 cached["cache_reused"] = True
                 cached["cache_wait_seconds"] = round(wait_seconds, 4)
-                RUN_RUNTIME_STATE[run_id]["status"] = "completed"
+                RUN_RUNTIME_STATE[run_id]["status"] = "success"
                 RUN_RUNTIME_STATE[run_id]["result"] = cached
                 return cached
         else:
@@ -605,6 +605,20 @@ def run_task(
             on_step=_on_step,
             logger=logger,
         )
+        if not workflow_results:
+            raise ExecutionError(
+                "invalid_model_output",
+                "No workflow output produced.",
+                {"run_id": run_id, "task_id": task_id},
+            )
+        for idx, step in enumerate(workflow_results):
+            output_text = str(step.get("output", "") or "").strip()
+            if not output_text:
+                raise ExecutionError(
+                    "invalid_model_output",
+                    f"Empty model output at step {idx}.",
+                    {"run_id": run_id, "task_id": task_id, "step_index": idx},
+                )
 
         # Detect per-task total token budget overflow, but keep full outputs for persistence/evaluation.
         if max_total_tokens > 0:
@@ -628,13 +642,20 @@ def run_task(
         RUN_RUNTIME_STATE[run_id]["total_cost"] = total_cost
         persist_workflow_steps(run_id=run_id, workflow_results=workflow_results, database_url=settings.database_url)
 
-        evaluation_payload = evaluate_workflow(
-            evaluation_module=facade.evaluation,
-            workflow_results=workflow_results,
-            module_name=selected_module,
-            enable_cache=settings.enable_evaluation_cache,
-            logger=logger,
-        )
+        try:
+            evaluation_payload = evaluate_workflow(
+                evaluation_module=facade.evaluation,
+                workflow_results=workflow_results,
+                module_name=selected_module,
+                enable_cache=settings.enable_evaluation_cache,
+                logger=logger,
+            )
+        except Exception as eval_exc:
+            raise ExecutionError(
+                "evaluation_failed",
+                f"Evaluation failed: {eval_exc}",
+                {"run_id": run_id, "task_id": task_id},
+            ) from eval_exc
         evaluation = evaluation_payload["result"]
         final_output = workflow_results[-1]["output"] if workflow_results else ""
         constraint_assessment = _assess_constraints(final_output, task_config.get("constraints", []))
@@ -748,7 +769,7 @@ def run_task(
 
         update_run_status(
             run_id=run_id,
-            status="completed",
+            status="success",
             database_url=settings.database_url,
             final_score=evaluation.get("final_score"),
             total_cost=total_cost,
@@ -768,7 +789,7 @@ def run_task(
             "evaluation_cache_hit": bool(evaluation_payload.get("cache_hit", False)),
             "asset": asset,
             "storage": {"run_id": run_id, "asset_id": asset_id, "persisted": True},
-            "status": "completed",
+            "status": "success",
             "total_cost": total_cost,
             "affinity_updates": affinity_updates,
             "constraint_assessment": constraint_assessment,
@@ -786,7 +807,7 @@ def run_task(
                 "run_id": run_id,
                 "user_id": user_id,
                 "task_id": task_id,
-                "status": "completed",
+                "status": "success",
                 "total_cost": total_cost,
                 "total_tokens": total_tokens,
                 "total_latency_ms": total_latency_ms,
@@ -828,9 +849,9 @@ def run_task(
             module_name=selected_module,
             run_id=run_id,
             asset_id=asset_id,
-            status="completed",
+            status="success",
         )
-        RUN_RUNTIME_STATE[run_id]["status"] = "completed"
+        RUN_RUNTIME_STATE[run_id]["status"] = "success"
         RUN_RUNTIME_STATE[run_id]["result"] = result
         return result
     except Exception as exc:
@@ -866,6 +887,12 @@ def run_task(
         )
         RUN_RUNTIME_STATE[run_id]["status"] = "failed"
         RUN_RUNTIME_STATE[run_id]["error"] = str(exc)
+        if isinstance(exc, TimeoutError):
+            RUN_RUNTIME_STATE[run_id]["error_reason"] = "timeout"
+        elif isinstance(exc, ExecutionError):
+            RUN_RUNTIME_STATE[run_id]["error_reason"] = exc.code
+        else:
+            RUN_RUNTIME_STATE[run_id]["error_reason"] = "run_failed"
         log_event(
             logger,
             "run_end",

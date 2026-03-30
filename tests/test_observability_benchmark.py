@@ -25,6 +25,17 @@ def _patch_persistence(monkeypatch) -> None:
     monkeypatch.setenv("ENABLE_AGENT_CACHE", "false")
     monkeypatch.setenv("ENABLE_EVALUATION_CACHE", "false")
     get_settings.cache_clear()
+    import game_modules.business_sim.tasks as task_module
+
+    seed_tasks = task_module.get_seed_tasks()
+    monkeypatch.setattr(task_module, "list_tasks", lambda: seed_tasks)
+
+    def _get_task(name: str):
+        if name not in seed_tasks:
+            raise ValueError(f"Unknown task: {name}")
+        return seed_tasks[name]
+
+    monkeypatch.setattr(task_module, "get_task", _get_task)
 
 
 def test_benchmark_matrix_output_structure(monkeypatch) -> None:
@@ -119,7 +130,7 @@ def test_observability_fields_exist_in_run_result(monkeypatch) -> None:
 
     obs = result["observability"]
     assert obs["run_id"] == "run_obs_test_001"
-    assert obs["status"] == "completed"
+    assert obs["status"] == "success"
     assert isinstance(obs["total_tokens"], int)
     assert isinstance(obs["total_latency_ms"], int)
     assert "clarity_score" in obs

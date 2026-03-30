@@ -7,7 +7,7 @@ from typing import AsyncGenerator, Optional
 
 import structlog
 from dotenv import load_dotenv
-from fastapi import BackgroundTasks, FastAPI, HTTPException
+from fastapi import FastAPI, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import FileResponse
 
@@ -15,8 +15,6 @@ from api.run_task import (
     benchmark_models,
     debug_compare_agents,
     get_runtime_run,
-    init_runtime_run,
-    mark_runtime_failed,
     run_task,
     tuning_parameter_scan,
 )
@@ -28,7 +26,7 @@ from core_engine.errors import ExecutionError
 from core_engine.logging_utils import setup_logging
 from core_engine.module_facade import ModuleFacade
 from core_engine.module_loader import ModuleLoadError
-from core_engine.result_store import create_run, get_asset, get_run
+from core_engine.result_store import get_asset, get_run
 from core_engine.tuning import get_effective_tuning, get_tuning_overrides, update_tuning
 
 # Load environment variables from .env file
@@ -66,6 +64,75 @@ def _with_output_previews(run_payload: dict) -> dict:
         rewritten.append(copied)
     payload["workflow_steps"] = rewritten
     return payload
+
+
+def _suggestions_from_issues(issues: list[str]) -> list[str]:
+    suggestions: list[str] = []
+    for issue in issues:
+        text = str(issue).lower()
+        if "vague" in text:
+            suggestions.append("Add concrete target customer, budget, timeline, and measurable goals.")
+        elif "constraint" in text or "missing" in text:
+            suggestions.append("Explicitly include all required constraints in your instruction.")
+        elif "timeout" in text:
+            suggestions.append("Retry with shorter prompt scope or after checking provider latency.")
+        elif "insufficient wallet" in text:
+            suggestions.append("Choose a lower-cost task or increase wallet balance before retrying.")
+        elif "output" in text:
+            suggestions.append("Retry with clearer instructions and explicit expected format.")
+    if not suggestions:
+        suggestions.append("Retry with clearer and more specific instructions.")
+    deduped: list[str] = []
+    seen = set()
+    for item in suggestions:
+        if item not in seen:
+            seen.add(item)
+            deduped.append(item)
+    return deduped
+
+
+def _build_run_task_user_response(result: dict) -> dict:
+    player_result = result.get("player_result", {}) if isinstance(result, dict) else {}
+    player_feedback = result.get("player_feedback", {}) if isinstance(result, dict) else {}
+    issues = list(player_feedback.get("failure_reasons", []) or [])
+    success = bool(player_result.get("success", False))
+    if not success and not issues:
+        issues = ["output quality below threshold"]
+    summary = str(player_result.get("explanation") or ("Task succeeded." if success else "Task failed."))
+    return {
+        "success": success,
+        "run_id": str(result.get("storage", {}).get("run_id", "")),
+        "score": float(result.get("evaluation", {}).get("final_score", 0.0) or 0.0),
+        "reward": float(player_result.get("reward_gained", 0.0) or 0.0),
+        "cost": float(player_result.get("cost_spent", result.get("total_cost", 0.0)) or 0.0),
+        "status": "success" if success else "failed",
+        "summary": summary,
+        "feedback": {
+            "issues": issues,
+            "suggestions": _suggestions_from_issues(issues),
+        },
+    }
+
+
+def _build_failed_run_task_response(exc: ExecutionError) -> dict:
+    details = dict(exc.details or {})
+    run_id = str(details.get("run_id", ""))
+    summary = str(exc.message or "Run failed.")
+    issues = [summary]
+    return {
+        "success": False,
+        "run_id": run_id,
+        "score": 0.0,
+        "reward": 0.0,
+        "cost": 0.0,
+        "status": "failed",
+        "summary": summary,
+        "error_reason": str(exc.code or "run_failed"),
+        "feedback": {
+            "issues": issues,
+            "suggestions": _suggestions_from_issues([str(exc.code or ""), summary]),
+        },
+    }
 
 
 @asynccontextmanager
@@ -181,37 +248,23 @@ def health() -> dict:
 
 
 @app.post("/run-task", responses={400: {"model": ErrorResponse}, 500: {"model": ErrorResponse}})
-def run_task_route(request: RunTaskRequest, background_tasks: BackgroundTasks) -> dict:
+def run_task_route(request: RunTaskRequest) -> dict:
     settings = get_settings()
     try:
         selected_module = settings.active_game_module
-        run_id = create_run(
+        result = run_task(
             task_id=request.task_id,
             module_name=selected_module,
-            database_url=settings.database_url,
             user_id=request.user_id,
+            instructions=request.instructions,
         )
-        init_runtime_run(run_id=run_id, task_id=request.task_id, module_name=selected_module)
-
-        def _background_execute() -> None:
-            try:
-                run_task(
-                    task_id=request.task_id,
-                    module_name=selected_module,
-                    run_id_override=run_id,
-                    user_id=request.user_id,
-                    instructions=request.instructions,
-                )
-            except Exception as exc:  # pragma: no cover - defensive background path
-                mark_runtime_failed(run_id=run_id, error=str(exc), code=type(exc).__name__)
-
-        background_tasks.add_task(_background_execute)
-        return {"run_id": run_id, "status": "pending"}
+        return _build_run_task_user_response(result)
     except (ValueError, ModuleLoadError) as exc:
         raise HTTPException(status_code=400, detail=str(exc)) from exc
     except ExecutionError as exc:
-        status_code = 400 if exc.code in {"task_locked", "insufficient_wallet"} else 500
-        raise HTTPException(status_code=status_code, detail=exc.to_dict()) from exc
+        if exc.code in {"task_locked", "insufficient_wallet", "invalid_model_output", "evaluation_failed"}:
+            return _build_failed_run_task_response(exc)
+        raise HTTPException(status_code=500, detail=exc.to_dict()) from exc
 
 
 @app.get("/runs/{run_id}", responses={404: {"model": ErrorResponse}})

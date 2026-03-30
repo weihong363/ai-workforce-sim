@@ -68,7 +68,7 @@ def init_db(database_url: str) -> None:
         cursor.execute("COMMENT ON COLUMN workflow_runs.clarity_score IS 'Prompt clarity heuristic score for this run.'")
         cursor.execute("COMMENT ON COLUMN workflow_runs.deviation_detected IS 'Whether instruction deviation was detected in this run.'")
         cursor.execute("COMMENT ON COLUMN workflow_runs.constraint_adherence_score IS 'Constraint adherence ratio in [0,1].'")
-        cursor.execute("COMMENT ON COLUMN workflow_runs.status IS 'Run lifecycle status: pending/running/completed/failed.'")
+        cursor.execute("COMMENT ON COLUMN workflow_runs.status IS 'Run lifecycle status: pending/running/success/failed.'")
         cursor.execute("COMMENT ON COLUMN workflow_runs.error_message IS 'Failure detail when status is failed.'")
         cursor.execute("COMMENT ON COLUMN workflow_runs.created_at IS 'Run creation timestamp (UTC).'")
         cursor.execute("COMMENT ON COLUMN workflow_runs.updated_at IS 'Last run update timestamp (UTC).'")

@@ -1,9 +1,6 @@
-import time
-
 from fastapi.testclient import TestClient
 
 import api.app as app_module
-import api.run_task as run_task_module
 import api.users as users_module
 
 
@@ -22,63 +19,62 @@ def test_run_task_requires_user_id() -> None:
     assert response.status_code == 422
 
 
-def test_run_task_returns_immediately_and_completes(monkeypatch) -> None:
-    run_task_module.RUN_RUNTIME_STATE.clear()
-    monkeypatch.setattr(app_module, "create_run", lambda *args, **kwargs: "run_async_ok_001")
-    monkeypatch.setattr(app_module, "get_run", lambda *args, **kwargs: None)
-
+def test_run_task_returns_standardized_success_response(monkeypatch) -> None:
     def fake_run_task(*args, **kwargs):
-        run_id = kwargs.get("run_id_override", "run_async_ok_001")
-        run_task_module.RUN_RUNTIME_STATE[run_id]["status"] = "running"
-        run_task_module.RUN_RUNTIME_STATE[run_id]["workflow_steps"] = [{"step_index": 0, "agent_name": "demo"}]
-        time.sleep(0.05)
-        run_task_module.RUN_RUNTIME_STATE[run_id]["status"] = "completed"
-        run_task_module.RUN_RUNTIME_STATE[run_id]["result"] = {"status": "completed", "demo": True}
-        return {"status": "completed"}
+        return {
+            "status": "success",
+            "evaluation": {"final_score": 88.0},
+            "total_cost": 4.2,
+            "storage": {"run_id": "run_sync_ok_001"},
+            "player_result": {
+                "success": True,
+                "reward_gained": 12.0,
+                "cost_spent": 4.2,
+                "explanation": "good clarity",
+            },
+            "player_feedback": {"failure_reasons": []},
+        }
 
     monkeypatch.setattr(app_module, "run_task", fake_run_task)
 
     with TestClient(app_module.app) as client:
         response = client.post(
             "/run-task",
-            json={"task_id": "launch_coffee_subscription", "user_id": "test_user_async_001"},
+            json={"task_id": "launch_coffee_subscription", "user_id": "test_user_sync_001"},
         )
-        assert response.status_code == 200
-        assert response.json()["run_id"] == "run_async_ok_001"
-
-        final = None
-        for _ in range(40):
-            poll = client.get("/runs/run_async_ok_001")
-            if poll.status_code == 200 and poll.json().get("status") == "completed":
-                final = poll.json()
-                break
-            time.sleep(0.02)
-    assert final is not None
-    assert final.get("result", {}).get("demo") is True
+    assert response.status_code == 200
+    payload = response.json()
+    assert payload["success"] is True
+    assert payload["status"] == "success"
+    assert payload["run_id"] == "run_sync_ok_001"
+    assert payload["score"] == 88.0
+    assert payload["reward"] == 12.0
+    assert payload["cost"] == 4.2
+    assert "feedback" in payload
 
 
-def test_run_task_background_failure_sets_failed_status(monkeypatch) -> None:
-    run_task_module.RUN_RUNTIME_STATE.clear()
-    monkeypatch.setattr(app_module, "create_run", lambda *args, **kwargs: "run_async_fail_001")
-    monkeypatch.setattr(app_module, "get_run", lambda *args, **kwargs: None)
-    monkeypatch.setattr(app_module, "run_task", lambda *args, **kwargs: (_ for _ in ()).throw(RuntimeError("boom")))
+def test_run_task_failure_returns_standardized_failed_response(monkeypatch) -> None:
+    from core_engine.errors import ExecutionError
+
+    monkeypatch.setattr(
+        app_module,
+        "run_task",
+        lambda *args, **kwargs: (_ for _ in ()).throw(
+            ExecutionError("invalid_model_output", "Empty model output at step 0.", {"run_id": "run_fail_001"})
+        ),
+    )
 
     with TestClient(app_module.app) as client:
         response = client.post(
             "/run-task",
-            json={"task_id": "launch_coffee_subscription", "user_id": "test_user_async_003"},
+            json={"task_id": "launch_coffee_subscription", "user_id": "test_user_sync_003"},
         )
-        assert response.status_code == 200
-
-        failed = None
-        for _ in range(40):
-            poll = client.get("/runs/run_async_fail_001")
-            if poll.status_code == 200 and poll.json().get("status") == "failed":
-                failed = poll.json()
-                break
-            time.sleep(0.02)
-    assert failed is not None
-    assert failed.get("error_type") == "RuntimeError"
+    assert response.status_code == 200
+    payload = response.json()
+    assert payload["success"] is False
+    assert payload["status"] == "failed"
+    assert payload["run_id"] == "run_fail_001"
+    assert payload["error_reason"] == "invalid_model_output"
 
 
 def test_runs_endpoint_not_found(monkeypatch) -> None:

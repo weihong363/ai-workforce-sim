@@ -10,19 +10,43 @@ def _patch_persistence(monkeypatch) -> None:
     monkeypatch.setattr(run_task_module, "update_run_status", lambda *args, **kwargs: None)
     monkeypatch.setattr(run_task_module, "persist_workflow_steps", lambda *args, **kwargs: None)
     monkeypatch.setattr(run_task_module, "persist_asset", lambda *args, **kwargs: "asset_test_001")
+    from core_engine.config import get_settings
+
+    get_settings.cache_clear()
+    import game_modules.business_sim.tasks as task_module
+
+    seed_tasks = task_module.get_seed_tasks()
+    monkeypatch.setattr(task_module, "list_tasks", lambda: seed_tasks)
+
+    def _get_task(name: str):
+        if name not in seed_tasks:
+            raise ValueError(f"Unknown task: {name}")
+        return seed_tasks[name]
+
+    monkeypatch.setattr(task_module, "get_task", _get_task)
 
 
 def test_mock_mode_smoke(monkeypatch) -> None:
     _patch_persistence(monkeypatch)
     monkeypatch.setenv("USE_MOCK_PROVIDER", "true")
+    monkeypatch.setenv("DEFAULT_PROVIDER", "mock")
+    monkeypatch.setenv("PROVIDER_FOR_TASK", "mock")
+    monkeypatch.setenv("PROVIDER_FOR_EVALUATION", "mock")
+    monkeypatch.setenv("PROVIDER_TASK_JUNIOR", "mock")
+    monkeypatch.setenv("PROVIDER_TASK_MID", "mock")
+    monkeypatch.setenv("PROVIDER_TASK_SENIOR", "mock")
+    monkeypatch.setenv("PROVIDER_EVALUATOR", "mock")
     monkeypatch.setenv("LLM_PROVIDER", "mock")
     monkeypatch.setenv("ENABLE_AGENT_CACHE", "false")
     monkeypatch.setenv("ENABLE_EVALUATION_CACHE", "false")
     monkeypatch.setenv("LLM_COST_PER_1K_TOKENS_USD", "0.5")
+    from core_engine.config import get_settings
+
+    get_settings.cache_clear()
 
     result = run_task_module.run_task("launch_coffee_subscription")
 
-    assert result["status"] == "completed"
+    assert result["status"] == "success"
     assert result["workflow_results"][0]["provider"] == "mock"
     assert "comparison_fields" in result
     assert "token_usage" in result["comparison_fields"]
@@ -42,6 +66,9 @@ def test_real_provider_mode_integration_path(monkeypatch) -> None:
     monkeypatch.setenv("PROVIDER_FOR_TASK", "openai")
     monkeypatch.setenv("ENABLE_AGENT_CACHE", "false")
     monkeypatch.setenv("ENABLE_EVALUATION_CACHE", "false")
+    from core_engine.config import get_settings
+
+    get_settings.cache_clear()
 
     comparison = run_task_module.run_junior_vs_senior_comparison("launch_coffee_subscription")
 
