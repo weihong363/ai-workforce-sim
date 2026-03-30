@@ -46,3 +46,44 @@ output
 
 engine controls flow
 module defines meaning
+
+---
+
+## Future Data Flow (Disabled in MVP)
+
+### Semantic Retrieval Flow
+
+task input
+→ embed
+→ vector search
+→ retrieve similar tasks/assets
+→ enrich context
+→ run agent
+
+Status:
+NOT ENABLED
+
+---
+
+### Distributed Agent Execution
+
+run_task
+→ split into agent jobs
+→ queue
+→ multiple workers
+→ aggregate results
+
+Status:
+NOT ENABLED
+
+---
+
+## Current Rule
+
+All execution is:
+
+single run
+→ sequential workflow
+→ single execution context
+
+No distributed system.

@@ -222,7 +222,4 @@ CREATE TABLE contracts (
 - market_listings.status
 - transactions.created_at
 
----
-
-END OF FILE
 

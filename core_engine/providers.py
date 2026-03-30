@@ -2,6 +2,7 @@
 
 import json
 import os
+import re
 import urllib.error
 import urllib.request
 from typing import Callable, Dict, Optional
@@ -12,15 +13,53 @@ from core_engine.errors import ExecutionError
 class BaseProvider:
     provider_name = "base"
 
-    def complete(self, prompt: str, model: str) -> Dict[str, object]:
+    def complete(self, prompt: str, model: str, max_tokens: Optional[int] = None) -> Dict[str, object]:
         raise NotImplementedError
 
 
 class MockProvider(BaseProvider):
     provider_name = "mock"
 
-    def complete(self, prompt: str, model: str) -> Dict[str, object]:
-        text = f"MOCK_LLM_RESPONSE: {prompt.splitlines()[0]}"
+    @staticmethod
+    def _extract_task_input(prompt: str) -> str:
+        for line in str(prompt).splitlines():
+            if line.startswith("Task Input:"):
+                return line.replace("Task Input:", "", 1).strip()
+        return str(prompt).strip()
+
+    @staticmethod
+    def _model_size_hint(model: str) -> float:
+        match = re.search(r"(\d+(?:\.\d+)?)\s*[bB]\b", str(model))
+        if not match:
+            return 0.0
+        try:
+            return float(match.group(1))
+        except ValueError:
+            return 0.0
+
+    def complete(self, prompt: str, model: str, max_tokens: Optional[int] = None) -> Dict[str, object]:
+        task_input = self._extract_task_input(prompt)
+        lower = task_input.lower()
+        constraints = [k for k in ("target customer", "pricing", "risk", "timeline", "budget") if k in lower]
+        size_hint = self._model_size_hint(model)
+        richer = size_hint >= 20 or "senior" in lower or "strategy_writer" in lower
+
+        if richer:
+            lines = [
+                "Summary: mock analysis based on provided task input.",
+                "Plan:",
+                "- Define target segment and clear value proposition.",
+                "- Build pricing hypothesis with downside guardrail.",
+                "- Sequence launch timeline with ownership.",
+            ]
+            if constraints:
+                lines.append("Constraint check:")
+                for c in constraints:
+                    lines.append(f"- {c}: addressed")
+            text = "\n".join(lines)
+        else:
+            text = f"Quick take: {task_input[:80]}".strip()
+
         prompt_tokens = max(1, len(prompt.split()))
         completion_tokens = max(1, len(text.split()))
         return {
@@ -46,7 +85,7 @@ class OpenAICompatibleProvider(BaseProvider):
         self.base_url = base_url.rstrip("/")
         self.timeout_seconds = timeout_seconds
 
-    def complete(self, prompt: str, model: str) -> Dict[str, object]:
+    def complete(self, prompt: str, model: str, max_tokens: Optional[int] = None) -> Dict[str, object]:
         if not self.api_key:
             raise ExecutionError(
                 "provider_error",
@@ -57,6 +96,7 @@ class OpenAICompatibleProvider(BaseProvider):
             "model": model,
             "messages": [{"role": "user", "content": prompt}],
             "temperature": 0.2,
+            "max_tokens": int(max_tokens or 512),
         }
         request = urllib.request.Request(
             url=f"{self.base_url}/chat/completions",
@@ -121,7 +161,7 @@ class AdapterProvider(BaseProvider):
     def __init__(self, client: object) -> None:
         self.client = client
 
-    def complete(self, prompt: str, model: str) -> Dict[str, object]:
+    def complete(self, prompt: str, model: str, max_tokens: Optional[int] = None) -> Dict[str, object]:
         if not hasattr(self.client, "complete"):
             raise ExecutionError("provider_error", "Injected provider client must implement complete(prompt).")
         text = self.client.complete(prompt)

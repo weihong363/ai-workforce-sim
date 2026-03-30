@@ -40,3 +40,51 @@ run_task → workflow → agent → evaluate → asset
 ## Priority
 
 working system > perfect design
+
+---
+
+## Phase Separation
+
+### Phase 1 (Current MVP)
+
+Focus:
+- player loop
+- task execution
+- wallet + cost
+- agent behavior (basic)
+
+Do NOT include:
+- agent-level workers
+- vector database
+- hiring system
+- market system
+
+---
+
+### Phase 2 (After MVP Validation)
+
+Introduce:
+
+1. async worker scaling
+2. semantic retrieval (pgvector)
+3. agent memory (lightweight)
+4. better model routing
+
+---
+
+### Phase 3 (Game Expansion)
+
+Introduce:
+
+1. hiring / firing
+2. employee lifecycle
+3. market system
+4. multi-user interaction
+5. PvP
+
+---
+
+## Rule for Codex
+
+If feature is not in Phase 1:
+DO NOT implement.

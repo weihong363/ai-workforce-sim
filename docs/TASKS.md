@@ -377,3 +377,15 @@ Engine Competitive Version = Phase 0–8
 ## Core Loop
 
 Load Module → Execute → Evaluate → Serialize → Compare
+---
+
+## Future Tasks (Not Now)
+
+- agent-level distributed execution
+- vector-based task/asset search
+- agent memory / experience system
+- semantic prompt improvement
+
+Rule:
+Do NOT implement these in MVP.
+Focus only on playable loop.

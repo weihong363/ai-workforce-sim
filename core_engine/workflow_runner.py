@@ -11,6 +11,7 @@ def run_sequential_workflow(
     task_input: str,
     agent_controller: AgentController,
     agent_profiles: Dict[str, Dict[str, object]] = None,
+    on_step: object = None,
     logger: object = None,
 ) -> List[Dict[str, object]]:
     """Run agents in order, passing prior output forward."""
@@ -27,6 +28,8 @@ def run_sequential_workflow(
             agent_profile=(agent_profiles or {}).get(agent_name, {}),
         )
         results.append(result)
+        if on_step is not None:
+            on_step(index, result)
         previous_output = result["output"]
         if logger is not None:
             log_event(

@@ -5,7 +5,7 @@ from importlib import import_module
 from typing import Any, Dict, Optional
 
 
-REQUIRED_EXPORTS = ("agents", "tasks", "evaluation", "asset_transform")
+REQUIRED_EXPORTS = ("agents", "tasks", "evaluation", "asset_transform", "progression")
 MODULE_NAME_PATTERN = re.compile(r"^[A-Za-z_][A-Za-z0-9_]*$")
 
 
@@ -44,7 +44,7 @@ def load_module(module_name: str) -> Dict[str, Any]:
             ) from exc
 
     if not callable(getattr(loaded["tasks"], "get_task", None)):
-        raise ModuleLoadError(f"Module '{module_name}' tasks must define callable get_task(task_name).")
+        raise ModuleLoadError(f"Module '{module_name}' tasks must define callable get_task(task_id).")
     if not callable(getattr(loaded["evaluation"], "evaluate", None)):
         raise ModuleLoadError(f"Module '{module_name}' evaluation must define callable evaluate(results).")
     if not callable(getattr(loaded["asset_transform"], "to_asset", None)):
@@ -53,5 +53,13 @@ def load_module(module_name: str) -> Dict[str, Any]:
         )
     if not hasattr(loaded["agents"], "AGENTS"):
         raise ModuleLoadError(f"Module '{module_name}' agents must define AGENTS.")
+    if not callable(getattr(loaded["progression"], "init_user", None)):
+        raise ModuleLoadError(
+            f"Module '{module_name}' progression must define callable init_user(user_id, ...)."
+        )
+    if not callable(getattr(loaded["progression"], "list_task_board", None)):
+        raise ModuleLoadError(
+            f"Module '{module_name}' progression must define callable list_task_board(user_id, tasks)."
+        )
 
     return loaded

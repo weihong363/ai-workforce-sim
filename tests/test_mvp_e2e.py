@@ -2,7 +2,7 @@ def test_run_task_end_to_end(test_run_data) -> None:
     """Test run_task end-to-end using JSON test data."""
     result = test_run_data["result"]
     
-    assert result["task_name"] == "launch_coffee_subscription"
+    assert result["task_id"] == "launch_coffee_subscription"
     assert result["module_name"] == "business_sim"
     
     workflow_results = result["workflow_results"]

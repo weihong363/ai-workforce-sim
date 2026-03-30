@@ -1,0 +1,83 @@
+[
+  {
+    "task_id": "tutorial_define_goal",
+    "task_config": {
+      "input": "Draft a very short launch brief for a neighborhood coffee subscription pilot.",
+      "workflow": ["market_analyst"],
+      "max_total_tokens": 120,
+      "is_tutorial": true,
+      "tutorial_order": 1,
+      "reward": 14.0,
+      "difficulty": "easy",
+      "cost_estimate": 3.5,
+      "constraints": ["target customer", "budget", "timeline"]
+    },
+    "source": "seed"
+  },
+  {
+    "task_id": "tutorial_add_constraints",
+    "task_config": {
+      "input": "Write execution constraints for the pilot and a simple go/no-go rule.",
+      "workflow": ["market_analyst", "strategy_writer"],
+      "max_total_tokens": 180,
+      "is_tutorial": true,
+      "tutorial_order": 2,
+      "reward": 18.0,
+      "difficulty": "easy",
+      "cost_estimate": 4.5,
+      "constraints": ["budget cap", "success metric", "risk"]
+    },
+    "source": "seed"
+  },
+  {
+    "task_id": "launch_coffee_subscription",
+    "task_config": {
+      "input": "Assess if we should launch a coffee subscription in one city.",
+      "workflow": ["market_analyst", "strategy_writer"],
+      "max_total_tokens": 320,
+      "is_tutorial": false,
+      "reward": 36.0,
+      "difficulty": "medium",
+      "cost_estimate": 8.0,
+      "constraints": ["target customer", "pricing", "risk"]
+    },
+    "source": "seed"
+  },
+  {
+    "task_id": "pilot_b2b_lunch_catering",
+    "task_config": {
+      "input": "Assess if we should pilot a B2B lunch catering plan for local offices.",
+      "workflow": ["market_analyst", "strategy_writer"],
+      "max_total_tokens": 320,
+      "is_tutorial": false,
+      "reward": 42.0,
+      "difficulty": "medium",
+      "cost_estimate": 9.5,
+      "constraints": ["customer segment", "unit economics", "timeline"]
+    },
+    "source": "seed"
+  },
+  {
+    "task_id": "benchmark_subscription_strategy_hard",
+    "task_config": {
+      "input": "Return JSON only. Build a launch strategy for a coffee subscription pilot with this shape: {\"market_size\": number, \"pricing_plan\": string, \"risk_matrix\": [string, string, string], \"execution_timeline\": [string, string, string, string], \"go_no_go\": string}. Include at least 4 numeric assumptions.",
+      "workflow": ["market_analyst", "strategy_writer"],
+      "max_total_tokens": 380,
+      "is_tutorial": false,
+      "reward": 48.0,
+      "difficulty": "hard",
+      "cost_estimate": 12.0,
+      "strict_constraints": true,
+      "constraints": [
+        "json_only",
+        "include_key:market_size",
+        "include_key:pricing_plan",
+        "include_key:risk_matrix",
+        "include_key:execution_timeline",
+        "include_key:go_no_go",
+        "min_numbers:4"
+      ]
+    },
+    "source": "seed"
+  }
+]

@@ -485,4 +485,12 @@ Never mix the two.
 
 ---
 
-END OF FILE
+## Future (Not MVP)
+
+Prompts may be augmented by:
+- retrieved context
+- similar task examples
+- memory
+
+Currently:
+no retrieval, no memory.
