@@ -10,7 +10,7 @@ def _read(path: str) -> str:
 
 def test_api_layer_has_no_direct_business_sim_imports() -> None:
     run_task_src = _read("api/run_task.py")
-    users_src = _read("api/users.py")
+    users_src = _read("api/routes/users.py")
 
     forbidden = "game_modules.business_sim"
     assert forbidden not in run_task_src
@@ -19,7 +19,7 @@ def test_api_layer_has_no_direct_business_sim_imports() -> None:
 
 def test_api_layer_uses_module_facade() -> None:
     run_task_src = _read("api/run_task.py")
-    users_src = _read("api/users.py")
+    users_src = _read("api/routes/users.py")
 
     assert "ModuleFacade" in run_task_src
     assert "ModuleFacade" in users_src

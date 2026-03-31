@@ -5,8 +5,8 @@ def test_full_path_smoke_includes_persistence(test_run_data) -> None:
     """Test that run_task returns expected structure using JSON test data."""
     # Use the test data from fixture instead of database
     result = test_run_data["result"]
-    
-    assert result["task_id"] == "launch_coffee_subscription"
+
+    assert result["task_id"] == "tsk_assess_a_city_launch_for_d9bbd92d"
     assert result["module_name"] == "business_sim"
     
     workflow_results = result["workflow_results"]

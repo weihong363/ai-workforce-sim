@@ -30,7 +30,7 @@ def test_benchmark_models_smoke(monkeypatch) -> None:
     monkeypatch.setenv("ENABLE_EVALUATION_CACHE", "false")
 
     payload = run_task_module.benchmark_models(
-        task_id="launch_coffee_subscription",
+        task_id="tsk_assess_a_city_launch_for_d9bbd92d",
         module_name="business_sim",
         agent_level="junior",
         models=["bench-model-a", "bench-model-b"],
@@ -67,7 +67,7 @@ def test_benchmark_hard_task_shows_constraint_misses(monkeypatch) -> None:
     monkeypatch.setenv("ENABLE_EVALUATION_CACHE", "false")
 
     payload = run_task_module.benchmark_models(
-        task_id="benchmark_subscription_strategy_hard",
+        task_id="tsk_hard_mode_structured_str_31cee1d4",
         module_name="business_sim",
         agent_level="junior",
         models=["bench-hard-a"],
@@ -87,3 +87,27 @@ def test_benchmark_advice_handles_smaller_model_beating_bigger_model() -> None:
     assert advice["recommended_model"] == "Qwen/Qwen3-8B"
     assert advice["anomaly_detected"] is True
     assert advice["confidence"] == "low"
+
+
+def test_benchmark_does_not_mutate_wallet_state(monkeypatch) -> None:
+    _patch_persistence(monkeypatch)
+    monkeypatch.setenv("DEFAULT_PROVIDER", "mock")
+    monkeypatch.setenv("PROVIDER_FOR_TASK", "mock")
+    monkeypatch.setenv("ENABLE_AGENT_CACHE", "false")
+    monkeypatch.setenv("ENABLE_EVALUATION_CACHE", "false")
+
+    import game_modules.business_sim.progression as progression_module
+
+    monkeypatch.setattr(
+        progression_module,
+        "finalize_task_result",
+        lambda *args, **kwargs: (_ for _ in ()).throw(AssertionError("benchmark should not mutate wallet")),
+    )
+
+    payload = run_task_module.benchmark_models(
+        task_id="tsk_assess_a_city_launch_for_d9bbd92d",
+        module_name="business_sim",
+        agent_level="junior",
+        models=["bench-model-a"],
+    )
+    assert payload["results"][0]["model"] == "bench-model-a"

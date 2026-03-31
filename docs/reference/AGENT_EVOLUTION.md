@@ -5,6 +5,7 @@
 Agents are NOT static tools.
 
 **They are:**
+
 - evolving assets
 - user-owned capabilities
 - long-term progression drivers
@@ -49,6 +50,7 @@ Agents are NOT static tools.
 ---
 
 Each agent has:
+
 - **skill_level** (0–100)
 - **efficiency** (token usage)
 - **error_rate** (0–1)
@@ -88,6 +90,7 @@ after N runs: skill +1
 ### 3.3 Specialization Unlock
 
 Example:
+
 - "Email Expert"
 - "Ad Copy Expert"
 
@@ -98,6 +101,7 @@ Example:
 ---
 
 Users can:
+
 - refine prompts
 - adjust personality
 
@@ -108,6 +112,7 @@ Users can:
 ---
 
 **Adjustable parameters:**
+
 - laziness
 - creativity
 - accuracy
@@ -115,6 +120,7 @@ Users can:
 ---
 
 **Trade-offs:**
+
 - more creativity → more risk
 - more accuracy → less originality
 
@@ -125,11 +131,13 @@ Users can:
 ---
 
 Users select:
+
 - 2–3 agents per workflow
 
 ---
 
 **Goal:**
+
 - create team composition strategy
 
 ---
@@ -139,6 +147,7 @@ Users select:
 ---
 
 Example:
+
 - Researcher + Writer → better output
 - Bad combo → worse results
 
@@ -149,12 +158,14 @@ Example:
 ---
 
 Better agents:
+
 - cost more
 - produce better outputs
 
 ---
 
 Forces decision:
+
 - optimize cost vs quality
 
 ---
@@ -164,6 +175,7 @@ Forces decision:
 ---
 
 Users can:
+
 - sell trained agents
 - share configurations
 
@@ -184,6 +196,7 @@ Use agents → Earn profit → Upgrade agents → Improve results
 ---
 
 **DO NOT:**
+
 - allow perfect agents
 - remove failure entirely
 - make upgrades too fast
@@ -195,6 +208,7 @@ Use agents → Earn profit → Upgrade agents → Improve results
 ---
 
 Players stay because:
+
 - they build "their team"
 - they improve over time
 
@@ -205,6 +219,7 @@ Players stay because:
 ---
 
 Only implement:
+
 - basic stats
 - simple upgrade
 - no training yet

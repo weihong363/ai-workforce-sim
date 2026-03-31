@@ -1,67 +1,98 @@
 [
   {
-    "task_id": "tutorial_define_goal",
     "task_config": {
-      "input": "Draft a very short launch brief for a neighborhood coffee subscription pilot.",
-      "workflow": ["market_analyst"],
-      "max_total_tokens": 120,
+      "title": "Tutorial 1 - Define the task clearly",
+      "input": "Write a short task brief for a neighborhood coffee subscription pilot. Make sure the employee knows who the plan is for, how much money can be spent, and when it should launch.",
+      "workflow": [
+        "market_analyst"
+      ],
+      "max_total_tokens": 140,
       "is_tutorial": true,
       "tutorial_order": 1,
-      "reward": 14.0,
+      "reward": 16.0,
       "difficulty": "easy",
-      "cost_estimate": 3.5,
-      "constraints": ["target customer", "budget", "timeline"]
+      "cost_estimate": 3.0,
+      "constraints": [
+        "target customer",
+        "budget",
+        "timeline"
+      ]
     },
     "source": "seed"
   },
   {
-    "task_id": "tutorial_add_constraints",
     "task_config": {
-      "input": "Write execution constraints for the pilot and a simple go/no-go rule.",
-      "workflow": ["market_analyst", "strategy_writer"],
-      "max_total_tokens": 180,
+      "title": "Tutorial 2 - Add constraints and success criteria",
+      "input": "Improve the pilot task by adding execution constraints. Include a spending cap, one success metric, and one key risk. End with a simple go/no-go rule.",
+      "workflow": [
+        "market_analyst",
+        "strategy_writer"
+      ],
+      "max_total_tokens": 200,
       "is_tutorial": true,
       "tutorial_order": 2,
-      "reward": 18.0,
+      "reward": 20.0,
       "difficulty": "easy",
-      "cost_estimate": 4.5,
-      "constraints": ["budget cap", "success metric", "risk"]
+      "cost_estimate": 4.0,
+      "constraints": [
+        "budget cap",
+        "success metric",
+        "risk",
+        "go/no-go rule"
+      ]
     },
     "source": "seed"
   },
   {
-    "task_id": "launch_coffee_subscription",
     "task_config": {
-      "input": "Assess if we should launch a coffee subscription in one city.",
-      "workflow": ["market_analyst", "strategy_writer"],
+      "title": "Assess a city launch for coffee subscription",
+      "input": "Assess whether we should launch a coffee subscription in one city. The answer should identify the target customer, propose pricing, and explain the main risks.",
+      "workflow": [
+        "market_analyst",
+        "strategy_writer"
+      ],
       "max_total_tokens": 320,
       "is_tutorial": false,
       "reward": 36.0,
       "difficulty": "medium",
       "cost_estimate": 8.0,
-      "constraints": ["target customer", "pricing", "risk"]
+      "constraints": [
+        "target customer",
+        "pricing",
+        "risk"
+      ]
     },
     "source": "seed"
   },
   {
-    "task_id": "pilot_b2b_lunch_catering",
     "task_config": {
-      "input": "Assess if we should pilot a B2B lunch catering plan for local offices.",
-      "workflow": ["market_analyst", "strategy_writer"],
+      "title": "Assess a B2B lunch catering pilot",
+      "input": "Assess whether we should pilot a B2B lunch catering plan for local offices. Identify the customer segment, estimate the basic unit economics, and outline a realistic timeline.",
+      "workflow": [
+        "market_analyst",
+        "strategy_writer"
+      ],
       "max_total_tokens": 320,
       "is_tutorial": false,
       "reward": 42.0,
       "difficulty": "medium",
       "cost_estimate": 9.5,
-      "constraints": ["customer segment", "unit economics", "timeline"]
+      "constraints": [
+        "customer segment",
+        "unit economics",
+        "timeline"
+      ]
     },
     "source": "seed"
   },
   {
-    "task_id": "benchmark_subscription_strategy_hard",
     "task_config": {
+      "title": "Hard mode - structured strategy JSON",
       "input": "Return JSON only. Build a launch strategy for a coffee subscription pilot with this shape: {\"market_size\": number, \"pricing_plan\": string, \"risk_matrix\": [string, string, string], \"execution_timeline\": [string, string, string, string], \"go_no_go\": string}. Include at least 4 numeric assumptions.",
-      "workflow": ["market_analyst", "strategy_writer"],
+      "workflow": [
+        "market_analyst",
+        "strategy_writer"
+      ],
       "max_total_tokens": 380,
       "is_tutorial": false,
       "reward": 48.0,
@@ -76,6 +107,170 @@
         "include_key:execution_timeline",
         "include_key:go_no_go",
         "min_numbers:4"
+      ]
+    },
+    "source": "seed"
+  },
+  {
+    "task_config": {
+      "input": "Assess whether a neighborhood coffee subscription is worth testing. Identify the target customer, a rough pricing idea, and one key risk.",
+      "workflow": [
+        "market_analyst"
+      ],
+      "max_total_tokens": 220,
+      "is_tutorial": false,
+      "reward": 28.0,
+      "difficulty": "easy",
+      "cost_estimate": 6.0,
+      "constraints": [
+        "target customer",
+        "pricing",
+        "risk"
+      ]
+    },
+    "source": "seed"
+  },
+  {
+    "task_config": {
+      "input": "Design a simple pilot plan for a coffee subscription. Include target users, a timeline, and how success will be measured.",
+      "workflow": [
+        "market_analyst",
+        "strategy_writer"
+      ],
+      "max_total_tokens": 240,
+      "is_tutorial": false,
+      "reward": 30.0,
+      "difficulty": "easy",
+      "cost_estimate": 6.5,
+      "constraints": [
+        "target customer",
+        "timeline",
+        "success metric"
+      ]
+    },
+    "source": "seed"
+  },
+  {
+    "task_config": {
+      "input": "Evaluate whether to launch a coffee subscription in a city. Define the target customer, pricing strategy, main risks, and a basic rollout timeline.",
+      "workflow": [
+        "market_analyst",
+        "strategy_writer"
+      ],
+      "max_total_tokens": 320,
+      "is_tutorial": false,
+      "reward": 42.0,
+      "difficulty": "medium",
+      "cost_estimate": 9.0,
+      "constraints": [
+        "target customer",
+        "pricing",
+        "risk",
+        "timeline"
+      ]
+    },
+    "source": "seed"
+  },
+  {
+    "task_config": {
+      "input": "Estimate the basic unit economics of a coffee subscription. Include pricing, cost per customer, and expected margin. Mention at least one risk.",
+      "workflow": [
+        "market_analyst",
+        "strategy_writer"
+      ],
+      "max_total_tokens": 320,
+      "is_tutorial": false,
+      "reward": 45.0,
+      "difficulty": "medium",
+      "cost_estimate": 10.0,
+      "constraints": [
+        "pricing",
+        "unit economics",
+        "risk"
+      ]
+    },
+    "source": "seed"
+  },
+  {
+    "task_config": {
+      "input": "Design a growth strategy for a coffee subscription. Identify target users, acquisition channels, pricing positioning, and one key risk.",
+      "workflow": [
+        "market_analyst",
+        "strategy_writer"
+      ],
+      "max_total_tokens": 340,
+      "is_tutorial": false,
+      "reward": 46.0,
+      "difficulty": "medium",
+      "cost_estimate": 10.5,
+      "constraints": [
+        "target customer",
+        "pricing",
+        "risk",
+        "acquisition channel"
+      ]
+    },
+    "source": "seed"
+  },
+  {
+    "task_config": {
+      "input": "Plan expansion of a coffee subscription into 3 cities. Define target segments for each, pricing differences, key risks, and a phased rollout plan.",
+      "workflow": [
+        "market_analyst",
+        "strategy_writer"
+      ],
+      "max_total_tokens": 380,
+      "is_tutorial": false,
+      "reward": 55.0,
+      "difficulty": "hard",
+      "cost_estimate": 12.5,
+      "constraints": [
+        "target customer",
+        "pricing",
+        "risk",
+        "timeline",
+        "segmentation"
+      ]
+    },
+    "source": "seed"
+  },
+  {
+    "task_config": {
+      "input": "List the top 3 risks for launching a coffee subscription, prioritize them, and give a clear go/no-go recommendation with reasoning.",
+      "workflow": [
+        "strategy_writer"
+      ],
+      "max_total_tokens": 300,
+      "is_tutorial": false,
+      "reward": 52.0,
+      "difficulty": "hard",
+      "cost_estimate": 11.5,
+      "constraints": [
+        "risk",
+        "prioritization",
+        "go/no-go rule"
+      ]
+    },
+    "source": "seed"
+  },
+  {
+    "task_config": {
+      "input": "Provide a structured launch strategy including: target customer, pricing plan, risk list (3 items), and a 3-step timeline.",
+      "workflow": [
+        "market_analyst",
+        "strategy_writer"
+      ],
+      "max_total_tokens": 360,
+      "is_tutorial": false,
+      "reward": 58.0,
+      "difficulty": "hard",
+      "cost_estimate": 13.0,
+      "constraints": [
+        "target customer",
+        "pricing",
+        "risk",
+        "timeline",
+        "structure"
       ]
     },
     "source": "seed"

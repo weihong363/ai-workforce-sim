@@ -10,11 +10,7 @@ sys.path.insert(0, str(Path(__file__).parent.parent))
 
 from dotenv import load_dotenv
 
-from core_engine.result_store import rebuild_db as rebuild_output_db
-from core_engine.task_store import rebuild_task_db
-from core_engine.user_store import rebuild_user_db
-from core_engine.agent_store import rebuild_agent_db, seed_module_agents
-from core_engine.module_facade import ModuleFacade
+from core_engine.bootstrap import rebuild_storage_destructive
 from core_engine.config import get_settings
 
 # Load environment
@@ -30,14 +26,11 @@ def main() -> None:
     print(f"\nDatabase URL: {DATABASE_URL}")
 
     try:
-        # Rebuild output/task schema first, then user schema.
-        rebuild_output_db(DATABASE_URL)
-        rebuild_task_db(DATABASE_URL)
-        rebuild_user_db(DATABASE_URL)
-        rebuild_agent_db(DATABASE_URL)
         settings = get_settings()
-        facade = ModuleFacade.from_name(settings.active_game_module)
-        seed_module_agents(DATABASE_URL, settings.active_game_module, getattr(facade.agents, "AGENTS", {}))
+        stats = rebuild_storage_destructive(
+            database_url=DATABASE_URL,
+            module_name=settings.active_game_module,
+        )
 
         print("\n✅ Database rebuilt successfully!")
         print("\nCreated tables:")
@@ -56,6 +49,7 @@ def main() -> None:
         print("  - task_name renamed to task_id in workflow_runs/game_tasks")
         print("  - timestamps are TIMESTAMPTZ")
         print("  - payload/config columns are JSONB")
+        print(f"  - seeded_tasks: {int(stats.get('seeded_tasks', 0))}")
     except Exception as exc:
         print(f"\n❌ Error rebuilding database: {exc}")
         sys.exit(1)

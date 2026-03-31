@@ -1,0 +1,377 @@
+<!doctype html>
+<html lang="en">
+<head>
+	<meta charset="utf-8"/>
+	<meta name="viewport" content="width=device-width, initial-scale=1"/>
+	<title>AI Workforce Sim - Play</title>
+	<style>
+		:root {
+			--bg: #f4f6fb;
+			--card: #ffffff;
+			--text: #1f2a37;
+			--muted: #637083;
+			--accent: #0f766e;
+			--line: #dbe2ea;
+			--ok: #15803d;
+			--warn: #b45309;
+			--err: #b91c1c;
+		}
+		body { margin: 0; font-family: "Avenir Next", "Segoe UI", sans-serif; background: var(--bg); color: var(--text); }
+		.wrap { min-height: 100vh; display: grid; place-items: center; padding: 20px; }
+		.card { width: min(900px, 96vw); background: var(--card); border: 1px solid var(--line); border-radius: 16px; padding: 24px; box-shadow: 0 8px 24px rgba(20,35,60,.08); }
+		.hidden { display: none; }
+		h1, h2, h3 { margin: 0 0 8px; }
+		h1 { font-size: 32px; }
+		h2 { font-size: 28px; }
+		p { margin: 8px 0; color: var(--muted); }
+		input, textarea, select, button { font: inherit; border-radius: 10px; }
+		input, textarea, select { width: 100%; border: 1px solid var(--line); padding: 10px 12px; box-sizing: border-box; }
+		textarea { min-height: 120px; resize: vertical; }
+		button { border: 0; background: var(--accent); color: #fff; padding: 10px 14px; cursor: pointer; }
+		button[disabled] { opacity: .6; cursor: not-allowed; }
+		.btn-secondary { background: #334155; }
+		.row { display: flex; gap: 10px; align-items: center; flex-wrap: wrap; }
+		.grid { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
+		.pill { display: inline-block; border-radius: 999px; padding: 4px 10px; font-size: 12px; margin-right: 6px; background: #eef2ff; color: #3730a3; }
+		.pill.ok { background: #ecfdf5; color: var(--ok); }
+		.pill.warn { background: #fff7ed; color: var(--warn); }
+		.pill.err { background: #fef2f2; color: var(--err); }
+		.task { border: 1px solid var(--line); border-radius: 12px; padding: 10px; margin-bottom: 8px; }
+		.task.reco { border-color: #22c55e; background: #f0fdf4; }
+		.meta { color: var(--muted); font-size: 13px; }
+		.result { margin-top: 12px; border: 1px dashed var(--line); border-radius: 12px; padding: 12px; }
+		.issues { margin: 8px 0 0 16px; padding: 0; }
+		@media (max-width: 768px) { .grid { grid-template-columns: 1fr; } h1 { font-size: 28px; } h2 { font-size: 24px; } }
+	</style>
+</head>
+<body>
+<div class="wrap">
+	<div class="card">
+		<section id="step-story">
+			<h1>Run your own AI workforce</h1>
+			<p>You were once a CEO.</p>
+			<p>After being pushed out, you re-enter as a junior manager.</p>
+			<p><strong>Your goal: survive the trial period.</strong></p>
+			<div class="row" style="margin-top:14px;">
+				<button id="story-start-btn">Start</button>
+			</div>
+		</section>
+
+		<section id="step-name" class="hidden">
+			<h2>Who is managing this team?</h2>
+			<p>Enter your name to start this session.</p>
+			<div class="row">
+				<input id="username" placeholder="Your name"/>
+				<button id="start-managing-btn">Start Managing</button>
+			</div>
+			<p id="name-error" class="pill err hidden"></p>
+		</section>
+
+		<section id="step-worker" class="hidden">
+			<h2>Meet your first worker</h2>
+			<p><strong>Junior Strategy Assistant</strong></p>
+			<div class="row">
+				<span class="pill warn">capability: low</span>
+				<span class="pill warn">clarity handling: low</span>
+				<span class="pill ok">reliability: medium</span>
+				<span class="pill ok">cost: low</span>
+			</div>
+			<div class="row" style="margin-top:10px;">
+				<span class="pill warn">needs clear instructions</span>
+				<span class="pill warn">misses details if prompt is vague</span>
+			</div>
+			<p style="margin-top:10px;"><strong>Tip:</strong> This worker performs poorly with vague instructions.</p>
+			<div class="row" style="margin-top:14px;">
+				<button id="to-goal-btn">Continue</button>
+			</div>
+		</section>
+
+		<section id="step-goal" class="hidden">
+			<h2>Trial period goal</h2>
+			<p><strong>Complete 2 successful tasks to pass.</strong></p>
+			<p>Failure costs money.</p>
+			<div class="row" style="margin-top:8px;">
+				<span id="goal-progress" class="pill">Goal progress: 0 / 2</span>
+				<span class="pill">Wallet matters: failed runs still cost you</span>
+			</div>
+			<div class="row" style="margin-top:14px;">
+				<button id="start-first-task-btn">Start First Task</button>
+			</div>
+		</section>
+
+		<section id="step-main" class="hidden">
+			<h2>Play</h2>
+			<div class="row" style="margin-bottom:8px;">
+				<span id="state-user" class="pill"></span>
+				<span id="state-wallet" class="pill"></span>
+				<span id="state-progress" class="pill"></span>
+				<span id="state-trial" class="pill"></span>
+			</div>
+
+			<div class="grid">
+				<div>
+					<h3>Available Tasks</h3>
+					<div id="tasks"></div>
+					<h3 style="margin-top:14px;">Locked Tasks</h3>
+					<div id="locked-tasks"></div>
+				</div>
+				<div>
+					<h3>Run Selected Task</h3>
+					<select id="task-select"></select>
+					<p id="selected-task-meta" class="meta"></p>
+					<textarea id="instructions" placeholder="Write clear, specific instructions..."></textarea>
+					<div class="row">
+						<button id="run-task-btn">Run Task</button>
+						<button id="refresh-tasks-btn" class="btn-secondary">Refresh Tasks</button>
+					</div>
+					<div id="result" class="result hidden"></div>
+				</div>
+			</div>
+		</section>
+	</div>
+</div>
+
+<script>
+	const apiBase = window.location.origin;
+	const state = { userId: '', username: '', tasksPayload: null, successfulRuns: 0, kpiScore: 50, recentDeltas: [] };
+
+	function byId(id) { return document.getElementById(id); }
+	function show(stepId) {
+		['step-story', 'step-name', 'step-worker', 'step-goal', 'step-main']
+			.forEach(id => byId(id).classList.toggle('hidden', id !== stepId));
+	}
+	function normalizeUserId(name) {
+		const cleaned = (name || '').trim().toLowerCase().replace(/[^a-z0-9]+/g, '_').replace(/^_+|_+$/g, '');
+		return `usr_${cleaned || 'player'}`;
+	}
+	async function jfetch(path, opts = {}) {
+		const resp = await fetch(`${apiBase}${path}`, {
+			headers: { 'Content-Type': 'application/json', ...(opts.headers || {}) },
+			...opts
+		});
+		const text = await resp.text();
+		const payload = text ? JSON.parse(text) : {};
+		if (!resp.ok) throw new Error(payload.detail ? JSON.stringify(payload.detail) : `${resp.status} ${text}`);
+		return payload;
+	}
+
+	async function startGame() {
+		const username = byId('username').value.trim();
+		if (!username) {
+			byId('name-error').textContent = 'Please enter a name.';
+			byId('name-error').classList.remove('hidden');
+			return;
+		}
+		byId('name-error').classList.add('hidden');
+		state.username = username;
+		let userId = '';
+		try {
+			const reg = await jfetch('/users/register', {
+				method: 'POST',
+				body: JSON.stringify({ username: state.username })
+			});
+			userId = String(reg.user_id || '').trim();
+		} catch (err) {
+			const text = String(err && err.message ? err.message : err);
+			if (!text.includes('already exists')) throw err;
+			const existing = await jfetch(`/users/by-username/${encodeURIComponent(state.username)}`);
+			userId = String(existing.user_id || '').trim();
+		}
+		if (!userId) throw new Error('Unable to resolve user_id for this username.');
+		state.userId = userId;
+		await jfetch('/game/start', {
+			method: 'POST',
+			body: JSON.stringify({ user_id: state.userId })
+		});
+		show('step-worker');
+	}
+
+	function renderTaskBoard(payload) {
+		state.tasksPayload = payload;
+		byId('state-user').textContent = `Player: ${state.username}`;
+		byId('state-wallet').textContent = `Wallet: ${Number(payload.wallet_balance || 0).toFixed(2)}`;
+		byId('state-progress').textContent = `Completed: ${payload.tasks_completed_count || 0}`;
+		byId('state-trial').textContent = `Trial success: ${state.successfulRuns} / 2`;
+		byId('goal-progress').textContent = `Goal progress: ${state.successfulRuns} / 2`;
+
+		const available = Array.isArray(payload.available) ? payload.available : [];
+		const locked = Array.isArray(payload.locked) ? payload.locked : [];
+		const tasksDiv = byId('tasks');
+		const lockedDiv = byId('locked-tasks');
+		const taskSelect = byId('task-select');
+		tasksDiv.innerHTML = '';
+		lockedDiv.innerHTML = '';
+		taskSelect.innerHTML = '';
+
+		available.forEach(task => {
+			const el = document.createElement('div');
+			el.className = `task ${task.recommended ? 'reco' : ''}`;
+			el.innerHTML = `
+				<div><strong>${task.title || task.task_id}</strong> ${task.recommended ? '<span class="pill ok">recommended</span>' : ''}</div>
+				<div class="meta">difficulty=${task.difficulty} reward=${task.base_reward} cost=${task.estimated_cost}</div>
+				<div class="meta">${task.description || ''}</div>
+			`;
+			tasksDiv.appendChild(el);
+
+			const opt = document.createElement('option');
+			opt.value = task.task_id;
+			opt.textContent = `${task.title || task.task_id} (${task.difficulty})`;
+			taskSelect.appendChild(opt);
+		});
+
+		locked.forEach(task => {
+			const el = document.createElement('div');
+			el.className = 'task';
+			el.innerHTML = `
+				<div><strong>${task.title || task.task_id}</strong></div>
+				<div class="meta">Locked: ${task.unlock_condition || 'Progress further to unlock.'}</div>
+			`;
+			lockedDiv.appendChild(el);
+		});
+
+		if (available.length > 0) {
+			const firstReco = available.find(t => !!t.recommended) || available[0];
+			taskSelect.value = firstReco.task_id;
+			updateSelectedTaskMeta();
+		} else {
+			byId('selected-task-meta').textContent = 'No available tasks right now.';
+		}
+	}
+
+	async function loadTasks() {
+		const payload = await jfetch(`/tasks?user_id=${encodeURIComponent(state.userId)}`);
+		renderTaskBoard(payload);
+	}
+
+	function sleep(ms) { return new Promise(resolve => setTimeout(resolve, ms)); }
+
+	function nextUnlockHint(payload) {
+		const locked = Array.isArray(payload?.locked) ? payload.locked : [];
+		if (!locked.length) return 'All current stages unlocked.';
+		const first = locked[0] || {};
+		return String(first.unlock_condition || 'Progress further to unlock more tasks.');
+	}
+
+	function updateSelectedTaskMeta() {
+		const payload = state.tasksPayload || {};
+		const selected = byId('task-select').value;
+		const available = Array.isArray(payload.available) ? payload.available : [];
+		const task = available.find(t => t.task_id === selected);
+		if (!task) return;
+		byId('selected-task-meta').textContent = `Expect: ${task.required_constraints?.join(', ') || 'n/a'} | Success >= ${task.success_threshold}`;
+	}
+
+	function startWorkingState() {
+		const result = byId('result');
+		const stages = ['Interpreting instruction...', 'Drafting response...', 'Evaluating quality...'];
+		const seq = [];
+		const start = 28 + Math.floor(Math.random() * 12);
+		seq.push(start);
+		seq.push(Math.max(0, start + (Math.random() > 0.5 ? 10 : -6) + Math.floor(Math.random() * 6)));
+		seq.push(Math.max(0, seq[1] + (Math.random() > 0.5 ? 7 : -5) + Math.floor(Math.random() * 6)));
+		let i = 0;
+		result.classList.remove('hidden');
+		result.innerHTML = `<div><strong>${stages[i]}</strong></div><div class="meta">Agent Score (estimate): ${seq[0]}</div>`;
+		const timer = setInterval(() => {
+			i = (i + 1) % stages.length;
+			const shown = seq.slice(0, Math.min(seq.length, i + 2));
+			result.innerHTML = `
+				<div><strong>${stages[i]}</strong></div>
+				<div class="meta">Agent Score (estimate): ${shown.join(' → ')}</div>
+			`;
+		}, 850);
+		return {
+			stop: () => clearInterval(timer),
+			scoreSeq: seq,
+		};
+	}
+
+	async function runTask() {
+		const taskId = byId('task-select').value;
+		if (!taskId) return;
+		byId('run-task-btn').disabled = true;
+		const working = startWorkingState();
+		try {
+			const runPromise = jfetch('/run-task', {
+				method: 'POST',
+				body: JSON.stringify({
+					task_id: taskId,
+					user_id: state.userId,
+					instructions: byId('instructions').value || ''
+				})
+			});
+			const anticipationDelay = 1000 + Math.floor(Math.random() * 1000);
+			const [payload] = await Promise.all([runPromise, sleep(anticipationDelay)]);
+			if (payload.success) state.successfulRuns += 1;
+			const issues = (payload.feedback && payload.feedback.issues) || [];
+			const suggestions = (payload.feedback && payload.feedback.suggestions) || [];
+			const well = payload.what_you_did_well || [];
+			const gotRight = payload.what_you_got_right || [];
+			const agentOutputs = Array.isArray(payload.agent_outputs) ? payload.agent_outputs : [];
+			const result = byId('result');
+			const currentBoard = state.tasksPayload || {};
+			const unlockHint = nextUnlockHint(currentBoard);
+			const delta = Number(payload.score_delta || 0);
+			if (Number.isFinite(delta) && payload.score_delta !== null && payload.score_delta !== undefined) {
+				state.recentDeltas.push(delta);
+				if (state.recentDeltas.length > 5) state.recentDeltas.shift();
+			}
+			const trend = state.recentDeltas.length
+				? state.recentDeltas.reduce((a, b) => a + b, 0) / state.recentDeltas.length
+				: 0;
+			state.kpiScore = Math.max(0, Math.min(100, state.kpiScore + trend * 0.6 + (payload.success ? 1.5 : -1.0)));
+			const finalScore = Number(payload.current_score ?? payload.score ?? 0);
+			const scoreSeq = [...working.scoreSeq, finalScore];
+			result.classList.remove('hidden');
+			result.innerHTML = `
+				<div><strong>${payload.headline || payload.message || payload.summary || 'Result'}</strong></div>
+				<div>${payload.message || ''}</div>
+				<div>Status: ${payload.status} | Agent Score: ${finalScore} | Reward: ${payload.reward} | Cost: ${payload.cost}</div>
+				<div>Agent score dynamics: ${scoreSeq.join(' → ')}</div>
+				<div>Player KPI (recent trend): ${state.kpiScore.toFixed(1)}</div>
+				<div>Wallet: ${payload.wallet_before} -> ${payload.wallet_after} (net ${payload.net_result})</div>
+				<div>Trial progress: ${state.successfulRuns} / 2 successful tasks</div>
+				<div>Next unlock hint: ${unlockHint}</div>
+				${payload.insight ? `<div><em>${payload.insight}</em></div>` : ''}
+				${payload.improvement_message ? `<div class="pill ok">${payload.improvement_message}</div>` : ''}
+				${payload.score_comparison ? `<div>Score change: ${payload.score_comparison.previous_score ?? 'n/a'} -> ${payload.score_comparison.current_score ?? 'n/a'} (delta ${payload.score_comparison.delta ?? 'n/a'})</div>` : ''}
+				${payload.near_miss ? `<div class="pill warn">Near miss: ${payload.hint || ''}</div>` : ''}
+				${well.length ? `<div><strong>What you did well:</strong><ul class="issues">${well.map(x => `<li>${x}</li>`).join('')}</ul></div>` : ''}
+				${gotRight.length ? `<div><strong>What was correct:</strong><ul class="issues">${gotRight.map(x => `<li>${x}</li>`).join('')}</ul></div>` : ''}
+				${payload.missing_focus ? `<div><strong>Missing focus:</strong> ${payload.missing_focus}</div>` : ''}
+				${payload.retry_suggestion ? `<div><strong>Retry tip:</strong> ${payload.retry_suggestion}</div>` : ''}
+				<div><strong>Learning loop:</strong> ${payload.success ? 'Clear prompts improved the output quality.' : 'Use the retry tip and run again to improve score.'}</div>
+				${issues.length ? `<div><strong>Issues:</strong><ul class="issues">${issues.map(x => `<li>${x}</li>`).join('')}</ul></div>` : ''}
+				${suggestions.length ? `<div><strong>Suggestions:</strong><ul class="issues">${suggestions.map(x => `<li>${x}</li>`).join('')}</ul></div>` : ''}
+				${
+					agentOutputs.length
+						? `<details style="margin-top:10px;"><summary><strong>Agent Output</strong> (${agentOutputs.length} step${agentOutputs.length > 1 ? 's' : ''})</summary>
+								${agentOutputs.map(s => `<div class="task"><div class="meta">${s.agent_name}</div><pre style="white-space:pre-wrap; margin:6px 0 0;">${String(s.output || '').replace(/</g, '&lt;')}</pre></div>`).join('')}
+							</details>`
+						: ''
+				}
+			`;
+			await loadTasks();
+		} catch (err) {
+			const result = byId('result');
+			result.classList.remove('hidden');
+			result.innerHTML = `<div class="pill err">Run failed: ${String(err.message || err)}</div>`;
+		} finally {
+			working.stop();
+			byId('run-task-btn').disabled = false;
+		}
+	}
+
+	byId('story-start-btn').addEventListener('click', () => show('step-name'));
+	byId('start-managing-btn').addEventListener('click', startGame);
+	byId('to-goal-btn').addEventListener('click', () => show('step-goal'));
+	byId('start-first-task-btn').addEventListener('click', async () => {
+		show('step-main');
+		await loadTasks();
+	});
+	byId('refresh-tasks-btn').addEventListener('click', loadTasks);
+	byId('task-select').addEventListener('change', updateSelectedTaskMeta);
+	byId('run-task-btn').addEventListener('click', runTask);
+</script>
+</body>
+</html>

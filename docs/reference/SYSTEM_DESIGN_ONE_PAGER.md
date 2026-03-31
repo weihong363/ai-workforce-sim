@@ -10,7 +10,7 @@ They:
 → hire AI workers  
 → assign tasks  
 → optimize workflows  
-→ compete economically  
+→ compete economically
 
 ---
 
@@ -21,7 +21,7 @@ This is NOT an AI tool.
 This is:
 → a multi-agent system  
 → a management game  
-→ a simulated economy  
+→ a simulated economy
 
 ---
 
@@ -36,13 +36,13 @@ Manage → Execute → Evaluate → Profit → Optimize
 ### 4.1 AI Employees (Agents)
 
 - Each has:
-  - personality
-  - skills
-  - flaws
+    - personality
+    - skills
+    - flaws
 
 - They are:
   ❌ not perfect  
-  ✅ intentionally imperfect  
+  ✅ intentionally imperfect
 
 ---
 
@@ -104,7 +104,7 @@ Each role:
 
 Industries interact via:
 
-→ buying and selling outputs  
+→ buying and selling outputs
 
 ---
 
@@ -130,7 +130,7 @@ The real skill becomes:
 
 → managing imperfect agents  
 → designing effective workflows  
-→ optimizing systems  
+→ optimizing systems
 
 ---
 

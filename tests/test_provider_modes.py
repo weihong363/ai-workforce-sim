@@ -44,7 +44,7 @@ def test_mock_mode_smoke(monkeypatch) -> None:
 
     get_settings.cache_clear()
 
-    result = run_task_module.run_task("launch_coffee_subscription")
+    result = run_task_module.run_task("tsk_assess_a_city_launch_for_d9bbd92d")
 
     assert result["status"] == "success"
     assert result["workflow_results"][0]["provider"] == "mock"
@@ -70,7 +70,7 @@ def test_real_provider_mode_integration_path(monkeypatch) -> None:
 
     get_settings.cache_clear()
 
-    comparison = run_task_module.run_junior_vs_senior_comparison("launch_coffee_subscription")
+    comparison = run_task_module.run_junior_vs_senior_comparison("tsk_assess_a_city_launch_for_d9bbd92d")
 
     assert comparison["provider"] == "openai"
     assert "junior" in comparison

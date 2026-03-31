@@ -18,8 +18,8 @@ def test_task_result_cached_and_reused(monkeypatch) -> None:
     monkeypatch.setenv("TASK_CACHE_DELAY_MIN_MS", "1")
     monkeypatch.setenv("TASK_CACHE_DELAY_MAX_MS", "2")
 
-    first = run_task_module.run_task("launch_coffee_subscription")
-    second = run_task_module.run_task("launch_coffee_subscription")
+    first = run_task_module.run_task("tsk_assess_a_city_launch_for_d9bbd92d")
+    second = run_task_module.run_task("tsk_assess_a_city_launch_for_d9bbd92d")
 
     assert first.get("cache_reused") is not True
     assert second.get("cache_reused") is True

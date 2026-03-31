@@ -85,7 +85,7 @@ python scripts/init_pg_test_data.py
 ✅ Existing data cleared
 
 📊 Inserting test data...
-   ✓ Test run 1: launch_coffee_subscription (score: 95.5)
+   ✓ Test run 1: tsk_assess_a_city_launch_for_d9bbd92d (score: 95.5)
    ✓ Test run 2: evaluate_market_expansion (score: 88.0)
    ✓ Test run 3: optimize_pricing_strategy (score: 92.5)
 
@@ -210,7 +210,7 @@ WHERE a.run_id = 'test_run_001';
 
 初始化脚本会创建 3 个测试 run：
 
-### Run 1: launch_coffee_subscription
+### Run 1: tsk_assess_a_city_launch_for_d9bbd92d
 - **Score**: 95.5
 - **Agents**: market_analyst → strategy_writer
 - **Asset**: 咖啡订阅商业计划

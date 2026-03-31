@@ -360,11 +360,13 @@ def _build_user_row(
     completed_tasks: List[str],
 ) -> Dict[str, object]:
     projection = projection_row or {}
+    tasks_completed_count = len(task_history) if isinstance(task_history, list) else 0
     return {
         "user_id": user_row["id"],
         "username": user_row["username"],
         "wallet_balance": float(projection.get("wallet_balance", DEFAULT_STARTING_WALLET)),
         "tutorial_completed": bool(projection.get("tutorial_completed", False)),
+        "tasks_completed_count": int(tasks_completed_count),
         "owned_agents": owned_agents,
         "tutorial_progress": {"completed_tasks": completed_tasks},
         "task_history": task_history,
@@ -802,3 +804,71 @@ def add_task_to_history(user_id: str, task_record: Dict[str, object], database_u
         run_id=str(task_record.get("run_id")) if task_record.get("run_id") else None,
         task_id=str(task_record.get("task_id")) if task_record.get("task_id") else None,
     )
+
+
+def bind_agent_to_user(
+        user_id: str,
+        database_url: str,
+        module_name: Optional[str],
+        agent_name: str,
+        status: str = "active",
+) -> Dict[str, object]:
+    selected_module = _active_module_name(module_name)
+    normalized_user_id = normalize_id(user_id, "user_id")
+    normalized_agent_name = normalize_id(agent_name, "agent_name")
+    normalized_status = normalize_id(status or "active", "status", max_length=32)
+
+    user = get_user_by_id(normalized_user_id, database_url, module_name=selected_module)
+    if user is None:
+        raise ValueError(f"User {normalized_user_id} not found")
+
+    from core_engine.agent_store import get_agent  # local import to avoid cycle
+
+    catalog_agent = get_agent(database_url, selected_module, normalized_agent_name)
+    if catalog_agent is None:
+        raise ValueError(f"Agent '{normalized_agent_name}' not found in module '{selected_module}'")
+
+    owned_agents = list(user.get("owned_agents", []) or [])
+    for item in owned_agents:
+        if not isinstance(item, dict):
+            continue
+        if str(item.get("preset", "")) == normalized_agent_name:
+            raise ValueError(f"Agent '{normalized_agent_name}' already bound to user")
+
+    new_binding = {
+        "agent_id": generate_id("uagt"),
+        "preset": normalized_agent_name,
+        "level": str(catalog_agent.get("level", "junior") or "junior"),
+        "status": normalized_status,
+        "affinity": float(catalog_agent.get("affinity", 0.5) or 0.5),
+    }
+    owned_agents.append(new_binding)
+    user["owned_agents"] = owned_agents
+    upsert_user_state(user, database_url)
+    return new_binding
+
+
+def unbind_agent_from_user(
+        user_id: str,
+        database_url: str,
+        module_name: Optional[str],
+        agent_id: str,
+) -> Dict[str, object]:
+    selected_module = _active_module_name(module_name)
+    normalized_user_id = normalize_id(user_id, "user_id")
+    normalized_agent_id = normalize_id(agent_id, "agent_id")
+
+    user = get_user_by_id(normalized_user_id, database_url, module_name=selected_module)
+    if user is None:
+        raise ValueError(f"User {normalized_user_id} not found")
+
+    owned_agents = list(user.get("owned_agents", []) or [])
+    remaining = [item for item in owned_agents if str(item.get("agent_id", "")) != normalized_agent_id]
+    if len(remaining) == len(owned_agents):
+        raise ValueError(f"Agent binding '{normalized_agent_id}' not found for user")
+    if not remaining:
+        raise ValueError("User must keep at least one bound agent")
+
+    user["owned_agents"] = remaining
+    upsert_user_state(user, database_url)
+    return {"agent_id": normalized_agent_id, "deleted": True}

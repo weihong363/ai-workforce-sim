@@ -193,3 +193,24 @@ def get_task(database_url: str, module_name: str, task_id: str) -> Optional[Dict
     finally:
         cursor.close()
         conn.close()
+
+
+def delete_task(database_url: str, module_name: str, task_id: str) -> bool:
+    module_name = normalize_id(module_name, "module_name")
+    task_id = normalize_id(task_id, "task_id")
+    conn = _get_connection(database_url)
+    cursor = conn.cursor(cursor_factory=RealDictCursor)
+    try:
+        cursor.execute(
+            """
+            DELETE FROM game_tasks
+            WHERE module_name = %s AND id = %s
+            """,
+            (module_name, task_id),
+        )
+        deleted = cursor.rowcount > 0
+        conn.commit()
+        return bool(deleted)
+    finally:
+        cursor.close()
+        conn.close()

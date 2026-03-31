@@ -56,12 +56,14 @@ uvicorn api.app:app --reload --host 0.0.0.0 --port 8000
 ### SQLite（推荐用于开发和测试）
 
 **优点：**
+
 - ✅ 零配置
 - ✅ 单文件存储
 - ✅ 无需外部服务
 - ✅ Python 内置支持
 
 **配置：**
+
 ```bash
 # 文件数据库
 DATABASE_URL=sqlite:///data/sim_engine.db
@@ -73,17 +75,20 @@ DATABASE_URL=sqlite:///:memory:
 ### PostgreSQL（生产环境）
 
 **优点：**
+
 - ✅ 高并发支持
 - ✅ 完整 SQL 功能
 - ✅ 网络访问
 - ✅ 多用户协作
 
 **配置：**
+
 ```bash
 DATABASE_URL=postgresql://user:password@localhost:5432/workforce_sim
 ```
 
 **安装 PostgreSQL（macOS）：**
+
 ```bash
 brew install postgresql
 brew services start postgresql
@@ -127,6 +132,7 @@ curl http://localhost:8000/health
 ```
 
 **响应：**
+
 ```json
 {
   "status": "ok",
@@ -149,6 +155,7 @@ curl -X POST http://localhost:8000/run-task \
 ```
 
 **响应（封装对象）：**
+
 ```json
 {
   "run_id": "abc123...",
@@ -170,6 +177,7 @@ curl http://localhost:8000/runs/{run_id}
 ```
 
 **响应：**
+
 ```json
 {
   "run_id": "abc123...",
@@ -211,6 +219,7 @@ curl http://localhost:8000/assets/{asset_id}
 ```
 
 **响应：**
+
 ```json
 {
   "asset_id": "def456...",
@@ -263,6 +272,7 @@ INFO:     Application startup complete.
 ### Q1: 如何重置数据库？
 
 **SQLite:**
+
 ```bash
 # 删除数据库文件
 rm data/sim_engine.db
@@ -272,6 +282,7 @@ uvicorn api.app:app --reload
 ```
 
 **PostgreSQL:**
+
 ```bash
 # 连接数据库
 psql -U postgres -d workforce_sim
@@ -285,6 +296,7 @@ DROP TABLE IF EXISTS runs, workflow_steps, assets CASCADE;
 ### Q2: 如何查看数据库内容？
 
 **SQLite CLI:**
+
 ```bash
 sqlite3 data/sim_engine.db
 
@@ -298,6 +310,7 @@ SELECT id, asset_type FROM assets;
 ```
 
 **PostgreSQL:**
+
 ```bash
 psql -U postgres -d workforce_sim
 
@@ -340,11 +353,11 @@ DATABASE_URL=postgresql://user:pass@localhost:5432/dbname
 
 ## 📈 性能基准
 
-| 数据库类型 | 单次请求 | 并发能力 | 适用场景 |
-|-----------|---------|---------|---------|
-| SQLite 内存 | ~5ms | 低 | 单元测试、快速原型 |
-| SQLite 文件 | ~10ms | 中 | 开发测试、Demo |
-| PostgreSQL | ~15ms | 高 | 生产环境 |
+| 数据库类型      | 单次请求  | 并发能力 | 适用场景      |
+|------------|-------|------|-----------|
+| SQLite 内存  | ~5ms  | 低    | 单元测试、快速原型 |
+| SQLite 文件  | ~10ms | 中    | 开发测试、Demo |
+| PostgreSQL | ~15ms | 高    | 生产环境      |
 
 ---
 
@@ -375,9 +388,9 @@ DATABASE_URL=postgresql://user:pass@localhost:5432/dbname
    ```
 
 3. **尝试不同的数据库配置**
-   - 内存数据库（最快）
-   - 文件数据库（持久化）
-   - PostgreSQL（生产）
+    - 内存数据库（最快）
+    - 文件数据库（持久化）
+    - PostgreSQL（生产）
 
 ---
 

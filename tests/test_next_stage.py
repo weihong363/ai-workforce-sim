@@ -43,12 +43,12 @@ def test_token_budget_enforcement(monkeypatch) -> None:
     import game_modules.business_sim.tasks as task_module
 
     seed_tasks = task_module.list_tasks()
-    original_budget = seed_tasks["launch_coffee_subscription"].get("max_total_tokens")
-    seed_tasks["launch_coffee_subscription"]["max_total_tokens"] = 20
+    original_budget = seed_tasks["tsk_assess_a_city_launch_for_d9bbd92d"].get("max_total_tokens")
+    seed_tasks["tsk_assess_a_city_launch_for_d9bbd92d"]["max_total_tokens"] = 20
     try:
-        result = run_task_module.run_task("launch_coffee_subscription")
+        result = run_task_module.run_task("tsk_assess_a_city_launch_for_d9bbd92d")
     finally:
-        seed_tasks["launch_coffee_subscription"]["max_total_tokens"] = original_budget
+        seed_tasks["tsk_assess_a_city_launch_for_d9bbd92d"]["max_total_tokens"] = original_budget
 
     assert any(step.get("budget_action") == "task_total_budget_truncated" for step in result["workflow_results"])
 
@@ -59,7 +59,7 @@ def test_cost_calculation(monkeypatch) -> None:
     monkeypatch.setenv("ENABLE_AGENT_CACHE", "false")
     monkeypatch.setenv("ENABLE_EVALUATION_CACHE", "false")
 
-    result = run_task_module.run_task("launch_coffee_subscription")
+    result = run_task_module.run_task("tsk_assess_a_city_launch_for_d9bbd92d")
     assert result["total_cost"] > 0
     assert all(float(step.get("cost", 0.0)) >= 0 for step in result["workflow_results"])
 
@@ -69,7 +69,7 @@ def test_delay_simulation_present(monkeypatch) -> None:
     monkeypatch.setenv("ENABLE_AGENT_CACHE", "false")
     monkeypatch.setenv("ENABLE_EVALUATION_CACHE", "false")
 
-    result = run_task_module.run_task("launch_coffee_subscription")
+    result = run_task_module.run_task("tsk_assess_a_city_launch_for_d9bbd92d")
     assert all(float(step.get("result_delay_seconds", 0.0)) > 0 for step in result["workflow_results"])
 
 
@@ -81,7 +81,7 @@ def test_junior_vs_senior_comparison(monkeypatch) -> None:
     # Make delay deterministic for stable comparison.
     monkeypatch.setattr("core_engine.agent_controller.random.uniform", lambda a, b: (a + b) / 2)
 
-    debug = run_task_module.debug_compare_agents("launch_coffee_subscription")
+    debug = run_task_module.debug_compare_agents("tsk_assess_a_city_launch_for_d9bbd92d")
     junior = next(item for item in debug["results"] if item["agent_level"] == "junior")
     senior = next(item for item in debug["results"] if item["agent_level"] == "senior")
 

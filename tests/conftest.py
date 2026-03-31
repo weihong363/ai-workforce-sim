@@ -21,7 +21,7 @@ def test_run_data():
             "run_id": "test_run_001",
             "created_at": "2026-03-27T10:00:00+00:00",
             "result": {
-                "task_id": "launch_coffee_subscription",
+                "task_id": "tsk_assess_a_city_launch_for_d9bbd92d",
                 "module_name": "business_sim",
                 "workflow_results": [
                     {

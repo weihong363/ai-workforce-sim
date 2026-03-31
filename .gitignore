@@ -47,6 +47,9 @@ data/runs/
 api/data/
 data/business_sim_users.json
 connectivity_test_results.json
+00
+11
+data/artifacts/
 
 # Logs
 *.log

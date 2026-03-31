@@ -3,6 +3,7 @@
 ## 0. Core Philosophy
 
 **Balance goal:**
+
 - Reward optimization, not randomness
 - Encourage iteration
 - Penalize laziness (bad management)
@@ -22,6 +23,7 @@ Manage → Execute → Evaluate → Profit → Upgrade
 ### Base Reward
 
 Each task has:
+
 - **base_reward** (e.g. 100)
 
 ---
@@ -69,6 +71,7 @@ profit = final_reward - cost
 ## 5. Failure Impact
 
 Failure should:
+
 - Reduce score by **10–40%**
 - Increase rework (extra cost)
 
@@ -96,6 +99,7 @@ Failure should:
 ## 7. Agent Efficiency
 
 Agents affect:
+
 - output quality
 - token usage
 - error rate
@@ -144,6 +148,7 @@ price = score * multiplier
 ## 10. Leaderboard Rules
 
 Rank by:
+
 1. Total profit
 2. Average profit per run
 3. Consistency

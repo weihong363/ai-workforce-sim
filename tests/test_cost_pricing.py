@@ -17,6 +17,6 @@ def test_cost_calculated_from_provider_rate(monkeypatch) -> None:
     monkeypatch.setenv("COST_PER_1K_BY_PROVIDER_JSON", '{"mock": 2.0}')
     monkeypatch.setenv("LLM_COST_PER_1K_TOKENS_USD", "0")
 
-    result = run_task_module.run_task("launch_coffee_subscription")
+    result = run_task_module.run_task("tsk_assess_a_city_launch_for_d9bbd92d")
     assert result["total_cost"] > 0
     assert result["comparison_fields"]["cost"] > 0

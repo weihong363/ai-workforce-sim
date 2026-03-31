@@ -1,61 +1,115 @@
-# AI Workforce Sim
+# AI Workforce Sim (Playable MVP)
 
-Minimal backend for an AI workforce simulation game.
+A playable AI workforce simulation game backend.
 
-## Project Overview
+You act as a manager: write instructions for AI workers, run tasks, and improve prompts to earn more rewards.
 
-This repo provides a playable backend loop:
+Better prompts -> better scores -> better wallet outcomes.
 
-1. initialize user
-2. tutorial tasks
-3. unlocked task board
-4. run task with agent
-5. evaluate output
-6. persist run + asset
-7. update wallet and return feedback
+## Core Gameplay Loop
 
-## Architecture Summary
+1. Start game (`POST /game/start`)
+   note: register user first via `POST /users/register`
+2. Receive initial worker (`junior`)
+3. Complete tutorial tasks
+4. Unlock normal task board
+5. Run tasks repeatedly (`POST /run-task`)
+6. Spend cost every run, get reward on success
+7. Read feedback, improve prompt, retry
 
-- `core_engine/`: game-agnostic engine pieces (module loading, workflow, agent controller, provider routing, persistence)
-- `game_modules/business_sim/`: business-specific game logic (agents, tasks, progression, evaluation, rewards)
-- `api/`: thin HTTP layer (validation + orchestration entry)
+## Project Structure
 
-Important boundary:
-- API must not directly import `game_modules.business_sim.*`
-- API talks to modules through `core_engine.module_facade.ModuleFacade`
+- `api/`: HTTP routes and response shaping
+- `core_engine/`: game-agnostic runtime (module loading, workflow, providers, persistence)
+- `game_modules/business_sim/`: business gameplay logic (tasks, progression, evaluation, rewards)
+- `tests/`: unit/integration tests for the MVP loop
 
-## Module Interface Contract
+## 3-Minute Local Setup
 
-A game module must expose:
+1. Install dependencies:
 
-- `agents`
-- `tasks`
-- `evaluation`
-- `asset_transform`
-- `progression`
+```bash
+python3 -m venv venv
+source venv/bin/activate
+pip install -r requirements.txt
+```
 
-Loader validation is enforced in [`core_engine/module_loader.py`](/Users/ironion/workspace/ai-workforce-sim/core_engine/module_loader.py).
+2. Configure env:
 
-## Local Run
+```bash
+cp .env.example .env
+```
+
+3. Initialize schema + seed tasks/agents:
+
+```bash
+python scripts/bootstrap_storage.py
+```
+
+4. Start API:
 
 ```bash
 python -m uvicorn api.app:app --reload
 ```
 
-Server default: `http://127.0.0.1:8000`
+API base: `http://127.0.0.1:8000`
 
-## Provider Configuration
+## How To Play (Minimal API Flow)
 
-Configure in `.env` (see `.env.example`):
+1. Start player:
 
-- provider routing: `DEFAULT_PROVIDER`, `PROVIDER_FOR_TASK`, `PROVIDER_FOR_EVALUATION`
-- role routing: `PROVIDER_TASK_JUNIOR`, `PROVIDER_TASK_MID`, `PROVIDER_TASK_SENIOR`, `PROVIDER_EVALUATOR`
-- model routing: `MODEL_TASK_JUNIOR`, `MODEL_TASK_MID`, `MODEL_TASK_SENIOR`, `MODEL_EVALUATOR`
-- fallback: `FALLBACK_PROVIDER`, `FALLBACK_MODEL`
+```bash
+curl -X POST http://127.0.0.1:8000/users/register \
+  -H 'Content-Type: application/json' \
+  -d '{"username":"demo_player"}'
+```
 
-## Mock vs Real Mode
+2. Enter game session:
 
-Mock mode (recommended for tests):
+```bash
+curl -X POST http://127.0.0.1:8000/game/start \
+  -H 'Content-Type: application/json' \
+  -d '{"user_id":"<user_id_from_register>"}'
+```
+
+3. Fetch visible tasks (tutorial first):
+
+```bash
+curl "http://127.0.0.1:8000/tasks?user_id=usr_demo_001"
+```
+
+4. Run tutorial task:
+
+```bash
+curl -X POST http://127.0.0.1:8000/run-task \
+  -H 'Content-Type: application/json' \
+  -d '{
+    "task_id":"tsk_tutorial_1_define_the_ta_4e9617a3",
+    "user_id":"usr_demo_001",
+    "instructions":"Define target customer, pricing, timeline, budget, and key risk."
+  }'
+```
+
+5. Fetch tasks again after progression:
+
+```bash
+curl "http://127.0.0.1:8000/tasks?user_id=usr_demo_001"
+```
+
+Tip: use `python scripts/demo_playable_flow.py` for an end-to-end local walkthrough.
+
+## Debug / Tuning Tools
+
+- `GET /debug/tuning`: read effective runtime tuning
+- `PATCH /debug/tuning`: patch gameplay tuning parameters
+- `POST /debug/benchmark-models`: compare models on one task
+- `POST /debug/benchmark`: benchmark matrix runner
+- `GET /debug/compare`: junior vs senior comparison
+- Optional local UI: [`api/static/tuning-ui.html`](/Users/ironion/workspace/ai-workforce-sim/api/static/tuning-ui.html)
+
+## Provider Mode
+
+Mock mode (default for local MVP):
 
 ```env
 DEFAULT_PROVIDER=mock
@@ -63,51 +117,25 @@ PROVIDER_FOR_TASK=mock
 PROVIDER_FOR_EVALUATION=mock
 ```
 
-Real provider mode (OpenAI-compatible endpoint):
+Real provider mode (OpenAI-compatible):
 
 ```env
 DEFAULT_PROVIDER=siliconflow
+PROVIDER_FOR_TASK=siliconflow
+PROVIDER_FOR_EVALUATION=siliconflow
 PROVIDER_SILICONFLOW_BASE_URL=https://api.siliconflow.cn/v1
-PROVIDER_SILICONFLOW_API_KEY=your_key
-MODEL_TASK_JUNIOR=Qwen/Qwen3-8B
-MODEL_TASK_SENIOR=Qwen/Qwen3-32B
-MODEL_EVALUATOR=Qwen/Qwen3-14B
+PROVIDER_SILICONFLOW_API_KEY=your_api_key
 ```
 
-## Example API Usage
+## Known MVP Limitations
 
-Create async run:
-
-```bash
-curl -X POST http://127.0.0.1:8000/run-task \
-  -H 'Content-Type: application/json' \
-  -d '{
-    "task_name":"launch_coffee_subscription",
-    "module_name":"business_sim",
-    "instructions":"Give a 4-step launch plan with budget and risks"
-  }'
-```
-
-Poll run:
-
-```bash
-curl http://127.0.0.1:8000/runs/<run_id>
-```
-
-Read asset:
-
-```bash
-curl http://127.0.0.1:8000/assets/<asset_id>
-```
+- No production auth or multi-tenant security layer
+- Debug endpoints are internal/developer-oriented
+- No advanced market/economy systems (no trading/PVP/hiring tree)
+- Local-first workflow (not production deployment automation)
 
 ## Tests
 
 ```bash
 pytest -q
-```
-
-Focused decoupling checks:
-
-```bash
-pytest -q tests/test_module_interface.py tests/test_api_module_decoupling.py
 ```

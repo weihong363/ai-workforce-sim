@@ -3,6 +3,7 @@ import time
 from fastapi.testclient import TestClient
 
 import api.app as app_module
+import api.routes.debug as debug_routes
 import api.run_task as run_task_module
 from core_engine.agent_controller import AgentController
 from core_engine.config import get_settings
@@ -70,7 +71,7 @@ def test_benchmark_matrix_output_structure(monkeypatch) -> None:
     )
 
     payload = run_task_module.benchmark_matrix(
-        task_id="launch_coffee_subscription",
+        task_id="tsk_assess_a_city_launch_for_d9bbd92d",
         module_name="business_sim",
         agent_levels=["junior"],
         models=["bench-model-x"],
@@ -78,7 +79,7 @@ def test_benchmark_matrix_output_structure(monkeypatch) -> None:
         repeats=2,
     )
 
-    assert payload["task_id"] == "launch_coffee_subscription"
+    assert payload["task_id"] == "tsk_assess_a_city_launch_for_d9bbd92d"
     assert len(payload["runs"]) == 4
     run_item = payload["runs"][0]
     assert set(run_item.keys()) == {
@@ -126,7 +127,7 @@ def test_benchmark_matrix_output_structure(monkeypatch) -> None:
 
 def test_observability_fields_exist_in_run_result(monkeypatch) -> None:
     _patch_persistence(monkeypatch)
-    result = run_task_module.run_task("launch_coffee_subscription")
+    result = run_task_module.run_task("tsk_assess_a_city_launch_for_d9bbd92d")
 
     obs = result["observability"]
     assert obs["run_id"] == "run_obs_test_001"
@@ -179,12 +180,12 @@ def test_parameter_change_affects_behavior(monkeypatch) -> None:
 
 def test_debug_run_endpoint_structure(monkeypatch) -> None:
     monkeypatch.setattr(
-        app_module,
+        debug_routes,
         "get_run",
         lambda *_a, **_k: {
             "run_id": "run_001",
             "user_id": "usr_001",
-            "task_id": "launch_coffee_subscription",
+            "task_id": "tsk_assess_a_city_launch_for_d9bbd92d",
             "status": "completed",
             "total_cost": 0.15,
             "total_tokens": 300,
@@ -230,7 +231,7 @@ def test_benchmark_matrix_endpoint_structure(monkeypatch) -> None:
         resp = client.post(
             "/debug/benchmark",
             json={
-                "task_id": "launch_coffee_subscription",
+                "task_id": "tsk_assess_a_city_launch_for_d9bbd92d",
                 "agent_levels": ["junior", "mid"],
                 "models": ["mvp-default"],
                 "user_instruction_variants": {"vague": "x", "clear": "y"},
@@ -239,14 +240,14 @@ def test_benchmark_matrix_endpoint_structure(monkeypatch) -> None:
         )
     assert resp.status_code == 200
     payload = resp.json()
-    assert payload["task_id"] == "launch_coffee_subscription"
+    assert payload["task_id"] == "tsk_assess_a_city_launch_for_d9bbd92d"
     assert "runs" in payload
     assert "aggregates" in payload
 
 
 def test_tuning_scan_endpoint_structure(monkeypatch) -> None:
     monkeypatch.setattr(
-        app_module,
+        debug_routes,
         "tuning_parameter_scan",
         lambda **kwargs: {
             "task_id": kwargs["task_id"],
@@ -258,7 +259,7 @@ def test_tuning_scan_endpoint_structure(monkeypatch) -> None:
         resp = client.post(
             "/debug/tuning-scan",
             json={
-                "task_id": "launch_coffee_subscription",
+                "task_id": "tsk_assess_a_city_launch_for_d9bbd92d",
                 "clarity_penalty_weights": [30, 40],
                 "constraint_penalty_weights": [14, 20],
                 "reward_multipliers": [0.9, 1.1],
@@ -266,7 +267,7 @@ def test_tuning_scan_endpoint_structure(monkeypatch) -> None:
         )
     assert resp.status_code == 200
     payload = resp.json()
-    assert payload["task_id"] == "launch_coffee_subscription"
+    assert payload["task_id"] == "tsk_assess_a_city_launch_for_d9bbd92d"
     assert "top_configs" in payload
     assert "results_ranked" in payload
 
@@ -309,11 +310,11 @@ def test_clear_vs_vague_produces_measurable_difference(monkeypatch) -> None:
     monkeypatch.setattr("core_engine.agent_controller.random.uniform", lambda _a, _b: 0.0)
 
     vague = run_task_module.run_task(
-        "launch_coffee_subscription",
+        "tsk_assess_a_city_launch_for_d9bbd92d",
         instructions="make it better",
     )
     clear = run_task_module.run_task(
-        "launch_coffee_subscription",
+        "tsk_assess_a_city_launch_for_d9bbd92d",
         instructions="Target customer: white collar. Budget: 50000. Timeline: 3 months. Must include pricing and risk.",
     )
 
@@ -332,7 +333,7 @@ def test_junior_vs_senior_output_is_visibly_different(monkeypatch) -> None:
     monkeypatch.setattr("core_engine.agent_controller.random.uniform", lambda _a, _b: 0.0)
 
     junior = run_task_module.run_task(
-        "launch_coffee_subscription",
+        "tsk_assess_a_city_launch_for_d9bbd92d",
         agent_overrides={
             "market_analyst": {"level": "junior", "obedience": 0.7, "initiative": 0.35, "effort": 0.5},
             "strategy_writer": {"level": "junior", "obedience": 0.7, "initiative": 0.35, "effort": 0.5},
@@ -340,7 +341,7 @@ def test_junior_vs_senior_output_is_visibly_different(monkeypatch) -> None:
         instructions="Target customer and pricing required.",
     )
     senior = run_task_module.run_task(
-        "launch_coffee_subscription",
+        "tsk_assess_a_city_launch_for_d9bbd92d",
         agent_overrides={
             "market_analyst": {"level": "senior", "obedience": 0.5, "initiative": 0.8, "effort": 0.85},
             "strategy_writer": {"level": "senior", "obedience": 0.5, "initiative": 0.8, "effort": 0.85},
@@ -357,7 +358,7 @@ def test_junior_vs_senior_output_is_visibly_different(monkeypatch) -> None:
 
 def test_missed_constraints_reduce_final_score(monkeypatch) -> None:
     _patch_persistence(monkeypatch)
-    result = run_task_module.run_task("benchmark_subscription_strategy_hard", instructions="just do it")
+    result = run_task_module.run_task("tsk_assess_a_city_launch_for_d9bbd92d", instructions="just do it")
     missed = int(result["comparison_fields"]["missed_constraints"])
     score = float(result["evaluation"]["final_score"])
     if missed > 0:
@@ -406,12 +407,12 @@ def test_junior_clear_instruction_improves_constraint_hits(monkeypatch) -> None:
         "strategy_writer": {"level": "junior", "obedience": 0.75, "initiative": 0.35, "effort": 0.55},
     }
     vague = run_task_module.run_task(
-        "launch_coffee_subscription",
+        "tsk_assess_a_city_launch_for_d9bbd92d",
         agent_overrides=junior_overrides,
         instructions="do a plan",
     )
     clear = run_task_module.run_task(
-        "launch_coffee_subscription",
+        "tsk_assess_a_city_launch_for_d9bbd92d",
         agent_overrides=junior_overrides,
         instructions="Targeting urban professionals, include pricing and risk factors.",
     )

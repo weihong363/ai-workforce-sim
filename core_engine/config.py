@@ -34,6 +34,7 @@ class Settings:
     task_token_budget_multiplier: float
     agent_token_budget_multiplier: float
     agent_cost_weight_overrides: Dict[str, float]
+    allow_debug_task_definition_override: bool
 
     provider_connections: Dict[str, Dict[str, object]]
     provider_for_purpose: Dict[str, str]
@@ -258,6 +259,10 @@ def get_settings(force_reload: bool = False) -> Settings:
             for k, v in _json_or_default(os.getenv("AGENT_COST_WEIGHT_JSON"), {}).items()
             if isinstance(v, (int, float))
         },
+        allow_debug_task_definition_override=_to_bool(
+            os.getenv("ALLOW_DEBUG_TASK_DEFINITION_OVERRIDE"),
+            default=False,
+        ),
         provider_connections=connections,
         provider_for_purpose={
             "task": provider_for_task,

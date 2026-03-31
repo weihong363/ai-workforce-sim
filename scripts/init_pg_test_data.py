@@ -77,7 +77,7 @@ def _seed_demo_data(database_url: str) -> None:
             """,
             (
                 "test_run_001",
-                "launch_coffee_subscription",
+                "tsk_assess_a_city_launch_for_d9bbd92d",
                 "business_sim",
                 95.5,
                 0.002,
