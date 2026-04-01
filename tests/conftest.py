@@ -25,14 +25,14 @@ def test_run_data():
                 "module_name": "business_sim",
                 "workflow_results": [
                     {
-                        "agent_name": "market_analyst",
+                        "agent_name": "operator",
                         "prompt": "Test prompt 1",
-                        "output": "MOCK_LLM_RESPONSE: market_analyst"
+                        "output": "MOCK_LLM_RESPONSE: operator"
                     },
                     {
-                        "agent_name": "strategy_writer",
+                        "agent_name": "maverick",
                         "prompt": "Test prompt 2",
-                        "output": "MOCK_LLM_RESPONSE: strategy_writer"
+                        "output": "MOCK_LLM_RESPONSE: maverick"
                     }
                 ],
                 "evaluation": {
@@ -45,9 +45,9 @@ def test_run_data():
                 "asset": {
                     "asset_type": "business_plan",
                     "payload": {
-                        "summary": "MOCK_LLM_RESPONSE: strategy_writer",
+                        "summary": "MOCK_LLM_RESPONSE: maverick",
                         "score": 100.0,
-                        "steps": ["market_analyst", "strategy_writer"]
+                        "steps": ["operator", "maverick"]
                     }
                 }
             }

@@ -63,6 +63,7 @@ def run_task(
     run_id_override: Optional[str] = None,
     user_id: Optional[str] = None,
     instructions: Optional[str] = None,
+        selected_agent_name: Optional[str] = None,
     model_overrides: Optional[Dict[str, str]] = None,
     task_definition_override: Optional[Dict[str, object]] = None,
 ) -> Dict[str, object]:
@@ -74,6 +75,7 @@ def run_task(
         run_id_override=run_id_override,
         user_id=user_id,
         instructions=instructions,
+        selected_agent_name=selected_agent_name,
         model_overrides=model_overrides,
         task_definition_override=task_definition_override,
     )
@@ -188,4 +190,3 @@ if __name__ == "__main__":
     else:
         output = run_task(task, module)
     print(json.dumps(output, indent=2))
-

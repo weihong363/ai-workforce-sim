@@ -16,37 +16,72 @@
 			--warn: #b45309;
 			--err: #b91c1c;
 		}
-		body { margin: 0; font-family: "Avenir Next", "Segoe UI", sans-serif; background: var(--bg); color: var(--text); }
+		body { margin: 0; font-family: "Avenir Next", "Segoe UI", sans-serif; background: radial-gradient(circle at top right, #eef7ff 0%, #f4f6fb 35%, #f4f6fb 100%); color: var(--text); }
 		.wrap { min-height: 100vh; display: grid; place-items: center; padding: 20px; }
-		.card { width: min(900px, 96vw); background: var(--card); border: 1px solid var(--line); border-radius: 16px; padding: 24px; box-shadow: 0 8px 24px rgba(20,35,60,.08); }
+		.card { width: min(1080px, 96vw); background: var(--card); border: 1px solid var(--line); border-radius: 16px; padding: 24px; box-shadow: 0 12px 28px rgba(20,35,60,.10); }
 		.hidden { display: none; }
 		h1, h2, h3 { margin: 0 0 8px; }
 		h1 { font-size: 32px; }
 		h2 { font-size: 28px; }
-		p { margin: 8px 0; color: var(--muted); }
+		p { margin: 8px 0; color: var(--muted); line-height: 1.5; }
 		input, textarea, select, button { font: inherit; border-radius: 10px; }
 		input, textarea, select { width: 100%; border: 1px solid var(--line); padding: 10px 12px; box-sizing: border-box; }
+		input:focus, textarea:focus, select:focus { outline: 2px solid rgba(15,118,110,.25); border-color: #0f766e; }
 		textarea { min-height: 120px; resize: vertical; }
 		button { border: 0; background: var(--accent); color: #fff; padding: 10px 14px; cursor: pointer; }
 		button[disabled] { opacity: .6; cursor: not-allowed; }
 		.btn-secondary { background: #334155; }
+		.btn-ghost { background: #ffffff; color: #0f766e; border: 1px solid #9dd8d3; }
 		.row { display: flex; gap: 10px; align-items: center; flex-wrap: wrap; }
-		.grid { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
+		.grid { display: grid; grid-template-columns: 1.05fr .95fr; gap: 16px; }
+		.panel { border: 1px solid var(--line); border-radius: 12px; padding: 12px; background: #fff; }
+		.label { font-size: 12px; text-transform: uppercase; letter-spacing: .05em; color: #546274; margin: 8px 0 6px; display: block; }
+		.hint { color: #546274; font-size: 12px; }
 		.pill { display: inline-block; border-radius: 999px; padding: 4px 10px; font-size: 12px; margin-right: 6px; background: #eef2ff; color: #3730a3; }
 		.pill.ok { background: #ecfdf5; color: var(--ok); }
 		.pill.warn { background: #fff7ed; color: var(--warn); }
 		.pill.err { background: #fef2f2; color: var(--err); }
-		.task { border: 1px solid var(--line); border-radius: 12px; padding: 10px; margin-bottom: 8px; }
+		.agent-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 12px; }
+		.agent-card { border: 1px solid var(--line); border-radius: 12px; padding: 12px; background: #fff; }
+		.agent-card.operator { background: linear-gradient(180deg, #f4fbff 0%, #ffffff 70%); }
+		.agent-card.maverick { background: linear-gradient(180deg, #fff7ed 0%, #ffffff 70%); }
+		.agent-card.slacker { background: linear-gradient(180deg, #f9fafb 0%, #ffffff 70%); }
+		.agent-card.selected { border-color: #0f766e; box-shadow: 0 0 0 2px rgba(15,118,110,.14); }
+		.agent-label { font-size: 12px; color: #0b3f3a; background: #dff8f5; border-radius: 999px; padding: 3px 8px; display: inline-block; margin-bottom: 6px; }
+		.radar-wrap { display: flex; justify-content: center; margin: 6px 0 10px; }
+		.radar-wrap svg { width: 170px; height: 170px; }
+		.agent-points { margin: 6px 0 0 16px; padding: 0; color: var(--muted); }
+		.cost-icons { letter-spacing: 2px; color: #0f766e; }
+		.task { border: 1px solid var(--line); border-radius: 12px; padding: 10px; margin-bottom: 8px; transition: all .15s ease; }
 		.task.reco { border-color: #22c55e; background: #f0fdf4; }
+		.task.selectable { cursor: pointer; }
+		.task.selectable:hover { border-color: #0f766e; transform: translateY(-1px); }
+		.task.selected { border-color: #0f766e; box-shadow: 0 0 0 2px rgba(15,118,110,.12); }
 		.meta { color: var(--muted); font-size: 13px; }
-		.result { margin-top: 12px; border: 1px dashed var(--line); border-radius: 12px; padding: 12px; }
+		.result { margin-top: 12px; border: 1px dashed var(--line); border-radius: 12px; padding: 12px; background: #fcfdff; }
+		.result.success { border-color: #16a34a; background: #f0fdf4; }
+		.result.failed { border-color: #dc2626; background: #fef2f2; }
+		.result-grid { display: grid; grid-template-columns: repeat(3, minmax(0,1fr)); gap: 8px; margin: 8px 0; }
+		.metric { border: 1px solid #dbe2ea; border-radius: 10px; padding: 8px; background: #fff; }
+		.metric .k { font-size: 11px; color: #64748b; text-transform: uppercase; letter-spacing: .05em; }
+		.metric .v { font-weight: 700; margin-top: 4px; }
+		.output-block { margin-top: 10px; border: 1px solid #dbe2ea; border-radius: 10px; background: #fff; }
+		.output-block summary { cursor: pointer; padding: 10px 12px; font-weight: 600; }
+		.output-body { padding: 0 12px 12px; }
+		.output-body pre { white-space: pre-wrap; margin: 6px 0 0; line-height: 1.45; overflow: auto; }
 		.issues { margin: 8px 0 0 16px; padding: 0; }
-		@media (max-width: 768px) { .grid { grid-template-columns: 1fr; } h1 { font-size: 28px; } h2 { font-size: 24px; } }
+		.prompt-templates { display: flex; gap: 8px; flex-wrap: wrap; margin: 8px 0; }
+		.char-count { margin-left: auto; font-size: 12px; color: #64748b; }
+		@media (max-width: 980px) { .agent-grid { grid-template-columns: 1fr; } }
+		@media (max-width: 768px) { .grid { grid-template-columns: 1fr; } .result-grid { grid-template-columns: 1fr; } h1 { font-size: 28px; } h2 { font-size: 24px; } }
 	</style>
 </head>
 <body>
 <div class="wrap">
 	<div class="card">
+		<div class="row" style="justify-content:flex-end; margin-bottom:8px;">
+			<button id="lang-toggle-btn" class="btn-ghost" type="button">中文</button>
+		</div>
 		<section id="step-story">
 			<h1>Run your own AI workforce</h1>
 			<p>You were once a CEO.</p>
@@ -71,16 +106,17 @@
 			<h2>Meet your first worker</h2>
 			<p><strong>Junior Strategy Assistant</strong></p>
 			<div class="row">
-				<span class="pill warn">capability: low</span>
-				<span class="pill warn">clarity handling: low</span>
-				<span class="pill ok">reliability: medium</span>
-				<span class="pill ok">cost: low</span>
+				<span id="worker-stat-capability" class="pill warn">capability: low</span>
+				<span id="worker-stat-clarity" class="pill warn">clarity handling: low</span>
+				<span id="worker-stat-reliability" class="pill ok">reliability: medium</span>
+				<span id="worker-stat-cost" class="pill ok">cost: low</span>
 			</div>
 			<div class="row" style="margin-top:10px;">
-				<span class="pill warn">needs clear instructions</span>
-				<span class="pill warn">misses details if prompt is vague</span>
+				<span id="worker-trait-clear" class="pill warn">needs clear instructions</span>
+				<span id="worker-trait-vague" class="pill warn">misses details if prompt is vague</span>
 			</div>
-			<p style="margin-top:10px;"><strong>Tip:</strong> This worker performs poorly with vague instructions.</p>
+			<p id="worker-tip-line" style="margin-top:10px;"><strong>Tip:</strong> This worker performs poorly with vague
+				instructions.</p>
 			<div class="row" style="margin-top:14px;">
 				<button id="to-goal-btn">Continue</button>
 			</div>
@@ -92,10 +128,23 @@
 			<p>Failure costs money.</p>
 			<div class="row" style="margin-top:8px;">
 				<span id="goal-progress" class="pill">Goal progress: 0 / 2</span>
-				<span class="pill">Wallet matters: failed runs still cost you</span>
+				<span id="goal-wallet-tip" class="pill">Wallet matters: failed runs still cost you</span>
 			</div>
 			<div class="row" style="margin-top:14px;">
-				<button id="start-first-task-btn">Start First Task</button>
+				<button id="start-first-task-btn">Choose Your Workers</button>
+			</div>
+		</section>
+
+		<section id="step-agents" class="hidden">
+			<h2>Select Your Workers (Choose 2)</h2>
+			<p id="agents-desc">Pick two junior workers for your starting lineup. These choices affect reliability, variance,
+				and cost feel.</p>
+			<p id="agents-hidden-tip" class="meta"><em>Each worker also has hidden tendencies you will discover through
+				use.</em></p>
+			<div id="agent-cards" class="agent-grid"></div>
+			<div class="row" style="margin-top:14px;">
+				<button id="confirm-lineup-btn">Start First Task</button>
+				<span id="lineup-hint" class="pill warn">Select exactly 2 workers.</span>
 			</div>
 		</section>
 
@@ -107,19 +156,37 @@
 				<span id="state-progress" class="pill"></span>
 				<span id="state-trial" class="pill"></span>
 			</div>
+			<div class="row" style="margin-bottom:8px;">
+				<span id="selected-workers-label" class="pill">Selected Workers:</span>
+				<span id="state-agents" class="meta"></span>
+			</div>
 
 			<div class="grid">
-				<div>
+				<div class="panel">
 					<h3>Available Tasks</h3>
 					<div id="tasks"></div>
 					<h3 style="margin-top:14px;">Locked Tasks</h3>
 					<div id="locked-tasks"></div>
 				</div>
-				<div>
+				<div class="panel">
 					<h3>Run Selected Task</h3>
+					<label class="label" for="task-select">Task</label>
 					<select id="task-select"></select>
 					<p id="selected-task-meta" class="meta"></p>
+					<label class="label" for="agent-select">Executing Worker</label>
+					<select id="agent-select"></select>
+					<p id="selected-agent-meta" class="meta"></p>
+					<div class="prompt-templates">
+						<button id="tpl-clear" class="btn-ghost" type="button">Clear + Specific</button>
+						<button id="tpl-metrics" class="btn-ghost" type="button">Add Metrics</button>
+						<button id="tpl-risk" class="btn-ghost" type="button">Add Risk</button>
+					</div>
+					<label class="label" for="instructions">Instructions</label>
 					<textarea id="instructions" placeholder="Write clear, specific instructions..."></textarea>
+					<div class="row">
+						<span class="hint">Tip: include target customer, budget, timeline, and risk.</span>
+						<span id="instructions-count" class="char-count">0 chars</span>
+					</div>
 					<div class="row">
 						<button id="run-task-btn">Run Task</button>
 						<button id="refresh-tasks-btn" class="btn-secondary">Refresh Tasks</button>
@@ -133,11 +200,364 @@
 
 <script>
 	const apiBase = window.location.origin;
-	const state = { userId: '', username: '', tasksPayload: null, successfulRuns: 0, kpiScore: 50, recentDeltas: [] };
+	const state = {
+		userId: '',
+		username: '',
+		tasksPayload: null,
+		successfulRuns: 0,
+		kpiScore: 50,
+		recentDeltas: [],
+		selectableAgents: [],
+		selectedAgentNames: [],
+		boundAgents: [],
+	};
+	let currentLang = localStorage.getItem('play_lang') || 'en';
+	const I18N = {
+		en: {
+			pageTitle: 'AI Workforce Sim - Play',
+			langSwitch: '中文',
+			start: 'Start',
+			startManaging: 'Start Managing',
+			continue: 'Continue',
+			chooseWorkers: 'Choose Your Workers',
+			startFirstTask: 'Start First Task',
+			runTask: 'Run Task',
+			refreshTasks: 'Refresh Tasks',
+			running: 'Running...',
+			namePlaceholder: 'Your name',
+			instructionsPlaceholder: 'Write clear, specific instructions...',
+			selectTwoWorkers: 'Select exactly 2 workers.',
+			noTasks: 'No available tasks right now.',
+			noSelectedAgents: 'No selected agents.',
+			noAvailableAgent: 'No available agent in lineup.',
+			goalProgress: 'Goal progress: {done} / 2',
+			player: 'Player',
+			wallet: 'Wallet',
+			completed: 'Completed',
+			trialSuccess: 'Trial success',
+			selectedWorkers: 'Selected Workers:',
+			lockedPrefix: 'Locked:',
+			progressUnlock: 'Progress further to unlock.',
+			expect: 'Expect',
+			successAtLeast: 'Success >=',
+			chars: 'chars',
+			workingInterpreting: 'Interpreting instruction...',
+			workingDrafting: 'Drafting response...',
+			workingEvaluating: 'Evaluating quality...',
+			agentScoreEstimate: 'Agent Score (estimate)',
+			status: 'Status',
+			agentScore: 'Agent Score',
+			playerKpi: 'Player KPI',
+			reward: 'Reward',
+			cost: 'Cost',
+			net: 'Net',
+			costBreakdown: 'Cost breakdown',
+			model: 'model',
+			agent: 'agent',
+			scoreDynamics: 'Agent score dynamics',
+			trialProgress: 'Trial progress',
+			nextUnlockHint: 'Next unlock hint',
+			scoreChange: 'Score change',
+			nearMiss: 'Near miss',
+			whatWell: 'What you did well',
+			whatRight: 'What was correct',
+			missingFocus: 'Missing focus',
+			retryTip: 'Retry tip',
+			learningLoop: 'Learning loop',
+			learningSuccess: 'Clear prompts improved the output quality.',
+			learningFail: 'Use the retry tip and run again to improve score.',
+			issues: 'Issues',
+			suggestions: 'Suggestions',
+			agentOutputFull: 'Agent Output (Full)',
+			allStepOutputs: 'All Step Outputs',
+			result: 'Result',
+			runFailed: 'Run failed',
+			nameRequired: 'Please enter a name.',
+			userResolveFailed: 'Unable to resolve user_id for this username.',
+			storyTitle: 'Run your own AI workforce',
+			storyLine1: 'You were once a CEO.',
+			storyLine2: 'After being pushed out, you re-enter as a junior manager.',
+			storyLine3: 'Your goal: survive the trial period.',
+			nameTitle: 'Who is managing this team?',
+			nameDesc: 'Enter your name to start this session.',
+			workerTitle: 'Meet your first worker',
+			workerName: 'Junior Strategy Assistant',
+			workerTipBody: 'This worker performs poorly with vague instructions.',
+			workerStatCapability: 'capability: low',
+			workerStatClarity: 'clarity handling: low',
+			workerStatReliability: 'reliability: medium',
+			workerStatCost: 'cost: low',
+			workerTraitClear: 'needs clear instructions',
+			workerTraitVague: 'misses details if prompt is vague',
+			goalTitle: 'Trial period goal',
+			goalMain: 'Complete 2 successful tasks to pass.',
+			goalSub: 'Failure costs money.',
+			goalWalletTip: 'Wallet matters: failed runs still cost you',
+			workersTitle: 'Select Your Workers (Choose 2)',
+			workersDesc: 'Pick two junior workers for your starting lineup. These choices affect reliability, variance, and cost feel.',
+			workersHiddenTip: 'Each worker also has hidden tendencies you will discover through use.',
+			playTitle: 'Play',
+			availableTasksTitle: 'Available Tasks',
+			lockedTasksTitle: 'Locked Tasks',
+			runSelectedTaskTitle: 'Run Selected Task',
+			taskLabel: 'Task',
+			executingWorkerLabel: 'Executing Worker',
+			instructionsLabel: 'Instructions',
+			instructionsHint: 'Tip: include target customer, budget, timeline, and risk.',
+			tplClear: 'Clear + Specific',
+			tplMetrics: 'Add Metrics',
+			tplRisk: 'Add Risk',
+		},
+		zh: {
+			pageTitle: 'AI Workforce Sim - 游玩',
+			langSwitch: 'EN',
+			start: '开始',
+			startManaging: '开始管理',
+			continue: '继续',
+			chooseWorkers: '选择你的员工',
+			startFirstTask: '开始第一个任务',
+			runTask: '执行任务',
+			refreshTasks: '刷新任务',
+			running: '执行中...',
+			namePlaceholder: '输入你的名字',
+			instructionsPlaceholder: '请输入清晰、具体的指令...',
+			selectTwoWorkers: '请选择 2 名员工。',
+			noTasks: '当前没有可执行任务。',
+			noSelectedAgents: '尚未选择员工。',
+			noAvailableAgent: '当前阵容没有可用员工。',
+			goalProgress: '目标进度：{done} / 2',
+			player: '玩家',
+			wallet: '钱包',
+			completed: '已完成',
+			trialSuccess: '试用期成功',
+			selectedWorkers: '已选员工：',
+			lockedPrefix: '解锁条件：',
+			progressUnlock: '继续推进即可解锁。',
+			expect: '要求',
+			successAtLeast: '成功阈值 >=',
+			chars: '字',
+			workingInterpreting: '理解指令中...',
+			workingDrafting: '生成方案中...',
+			workingEvaluating: '评估质量中...',
+			agentScoreEstimate: 'Agent 分数（估计）',
+			status: '状态',
+			agentScore: 'Agent 分数',
+			playerKpi: '玩家 KPI',
+			reward: '奖励',
+			cost: '成本',
+			net: '净收益',
+			costBreakdown: '成本构成',
+			model: '模型',
+			agent: '员工',
+			scoreDynamics: 'Agent 分数变化',
+			trialProgress: '试用期进度',
+			nextUnlockHint: '下一步解锁提示',
+			scoreChange: '分数变化',
+			nearMiss: '差一点',
+			whatWell: '你做得好的地方',
+			whatRight: '正确覆盖的点',
+			missingFocus: '缺失重点',
+			retryTip: '重试建议',
+			learningLoop: '学习反馈',
+			learningSuccess: '更清晰的提示词显著提升了输出质量。',
+			learningFail: '根据建议优化提示词后再试一次。',
+			issues: '问题',
+			suggestions: '建议',
+			agentOutputFull: 'Agent 输出（全文）',
+			allStepOutputs: '所有步骤输出',
+			result: '执行结果',
+			runFailed: '执行失败',
+			nameRequired: '请输入名字。',
+			userResolveFailed: '无法为该用户名解析 user_id。',
+			storyTitle: '经营你的 AI 员工团队',
+			storyLine1: '你曾经是 CEO。',
+			storyLine2: '在被迫离场后，你以初级管理者身份重新出发。',
+			storyLine3: '你的目标：通过试用期。',
+			nameTitle: '谁来管理这个团队？',
+			nameDesc: '输入你的名字开始本局体验。',
+			workerTitle: '认识你的第一位员工',
+			workerName: '初级策略助理',
+			workerTipBody: '当指令模糊时，这名员工表现会明显下降。',
+			workerStatCapability: '能力：低',
+			workerStatClarity: '清晰指令处理：低',
+			workerStatReliability: '稳定性：中',
+			workerStatCost: '成本：低',
+			workerTraitClear: '需要清晰指令',
+			workerTraitVague: '指令模糊时容易漏细节',
+			goalTitle: '试用期目标',
+			goalMain: '完成 2 个成功任务即可通过。',
+			goalSub: '失败也会消耗成本。',
+			goalWalletTip: '钱包很重要：失败执行也会扣费',
+			workersTitle: '选择你的员工（选 2 名）',
+			workersDesc: '从 3 名初级员工中选择 2 名组成起始阵容。选择会影响稳定性、波动和成本体验。',
+			workersHiddenTip: '每位员工还有隐藏倾向，你会在使用中逐步发现。',
+			playTitle: '开始游玩',
+			availableTasksTitle: '可执行任务',
+			lockedTasksTitle: '已锁定任务',
+			runSelectedTaskTitle: '执行任务',
+			taskLabel: '任务',
+			executingWorkerLabel: '执行员工',
+			instructionsLabel: '指令',
+			instructionsHint: '提示：请尽量包含目标用户、预算、时间线和风险。',
+			tplClear: '清晰具体',
+			tplMetrics: '补充指标',
+			tplRisk: '补充风险',
+		},
+	};
+	const t = (k, vars = {}) => {
+		const pack = I18N[currentLang] || I18N.en;
+		let text = pack[k] || I18N.en[k] || k;
+		Object.keys(vars || {}).forEach((name) => {
+			text = text.replace(`{${name}}`, String(vars[name]));
+		});
+		return text;
+	};
+
+	// TEMP_MVP_I18N_BRIDGE:
+	// Frontend-only adapter that localizes backend response text to Chinese.
+	// Remove this block after backend ships first-class i18n responses.
+	const TEMP_ZH_API_TEXT = {
+		success: "成功",
+		failed: "失败",
+		completed: "已完成",
+		"Task Completed": "任务完成",
+		"Almost there!": "差一点就成功了！",
+		"Good work!": "做得很好！",
+		"Run failed": "执行失败",
+		"instruction too vague": "指令太模糊",
+		"output quality below threshold": "输出质量低于阈值",
+		"missing target customer": "缺少目标用户",
+		"missing pricing": "缺少定价策略",
+		"missing risk": "缺少风险分析",
+		"missing timeline": "缺少时间线",
+		"insufficient balance": "余额不足",
+		"insufficient wallet": "钱包余额不足",
+		"no reward on failure": "失败不会获得奖励",
+		"good clarity": "指令清晰度较好",
+		"missing constraints": "缺少关键约束",
+		"Clear prompts improved the output quality.": "更清晰的提示词提升了输出质量。",
+		"Use the retry tip and run again to improve score.": "根据重试建议优化提示词后再试一次。",
+	};
+
+	function localizeApiTextToZh(text) {
+		let value = String(text || "");
+		if (!value) return value;
+		if (TEMP_ZH_API_TEXT[value]) return TEMP_ZH_API_TEXT[value];
+		value = value
+			.replace(/\binstruction too vague\b/gi, "指令太模糊")
+			.replace(/\bmissing target customer\b/gi, "缺少目标用户")
+			.replace(/\bmissing pricing\b/gi, "缺少定价策略")
+			.replace(/\bmissing risk\b/gi, "缺少风险分析")
+			.replace(/\bmissing timeline\b/gi, "缺少时间线")
+			.replace(/\bmissing constraints?\b/gi, "缺少关键约束")
+			.replace(/\binsufficient (wallet|balance)\b/gi, "余额不足")
+			.replace(/\bAlmost there\b/gi, "差一点")
+			.replace(/\bGood work\b/gi, "做得很好")
+			.replace(/\bTask Completed\b/gi, "任务完成");
+		return value;
+	}
+
+	function localizeApiListToZh(items) {
+		if (!Array.isArray(items)) return items;
+		return items.map((x) => localizeApiTextToZh(x));
+	}
+
+	function localizeApiPayload(payload) {
+		if (currentLang !== "zh" || !payload || typeof payload !== "object") return payload;
+		const out = JSON.parse(JSON.stringify(payload));
+		const textFields = [
+			"status", "headline", "message", "summary", "insight", "hint",
+			"missing_focus", "retry_suggestion", "improvement_message",
+		];
+		textFields.forEach((field) => {
+			if (typeof out[field] === "string") out[field] = localizeApiTextToZh(out[field]);
+		});
+		out.what_you_did_well = localizeApiListToZh(out.what_you_did_well);
+		out.what_you_got_right = localizeApiListToZh(out.what_you_got_right);
+		out.failure_reasons = localizeApiListToZh(out.failure_reasons);
+		if (out.feedback && typeof out.feedback === "object") {
+			out.feedback.issues = localizeApiListToZh(out.feedback.issues);
+			out.feedback.suggestions = localizeApiListToZh(out.feedback.suggestions);
+		}
+		return out;
+	}
+
+	function applyI18nStatic() {
+		document.documentElement.lang = currentLang === 'zh' ? 'zh-CN' : 'en';
+		document.title = t('pageTitle');
+		byId('lang-toggle-btn').textContent = t('langSwitch');
+		byId('story-start-btn').textContent = t('start');
+		byId('start-managing-btn').textContent = t('startManaging');
+		byId('to-goal-btn').textContent = t('continue');
+		byId('start-first-task-btn').textContent = t('chooseWorkers');
+		byId('confirm-lineup-btn').textContent = t('startFirstTask');
+		byId('run-task-btn').textContent = t('runTask');
+		byId('refresh-tasks-btn').textContent = t('refreshTasks');
+		byId('username').placeholder = t('namePlaceholder');
+		byId('instructions').placeholder = t('instructionsPlaceholder');
+
+		const sStory = byId('step-story');
+		sStory.querySelector('h1').textContent = t('storyTitle');
+		const sp = sStory.querySelectorAll('p');
+		if (sp.length >= 3) {
+			sp[0].textContent = t('storyLine1');
+			sp[1].textContent = t('storyLine2');
+			sp[2].querySelector('strong').textContent = t('storyLine3');
+		}
+		const sName = byId('step-name');
+		sName.querySelector('h2').textContent = t('nameTitle');
+		sName.querySelectorAll('p')[0].textContent = t('nameDesc');
+		const sWorker = byId('step-worker');
+		sWorker.querySelector('h2').textContent = t('workerTitle');
+		sWorker.querySelector('p strong').textContent = t('workerName');
+		byId('worker-stat-capability').textContent = t('workerStatCapability');
+		byId('worker-stat-clarity').textContent = t('workerStatClarity');
+		byId('worker-stat-reliability').textContent = t('workerStatReliability');
+		byId('worker-stat-cost').textContent = t('workerStatCost');
+		byId('worker-trait-clear').textContent = t('workerTraitClear');
+		byId('worker-trait-vague').textContent = t('workerTraitVague');
+		const workerTipP = byId('worker-tip-line');
+		if (workerTipP) workerTipP.innerHTML = `<strong>${currentLang === 'zh' ? '提示：' : 'Tip:'}</strong> ${t('workerTipBody')}`;
+		const sGoal = byId('step-goal');
+		sGoal.querySelector('h2').textContent = t('goalTitle');
+		const gp = sGoal.querySelectorAll('p');
+		if (gp.length >= 2) {
+			gp[0].querySelector('strong').textContent = t('goalMain');
+			gp[1].textContent = t('goalSub');
+		}
+		byId('goal-wallet-tip').textContent = t('goalWalletTip');
+		byId('goal-progress').textContent = t('goalProgress', { done: state.successfulRuns || 0 });
+		const sAgents = byId('step-agents');
+		sAgents.querySelector('h2').textContent = t('workersTitle');
+		byId('agents-desc').textContent = t('workersDesc');
+		byId('agents-hidden-tip').innerHTML = `<em>${t('workersHiddenTip')}</em>`;
+		byId('lineup-hint').textContent = t('selectTwoWorkers');
+		const sMain = byId('step-main');
+		sMain.querySelector('h2').textContent = t('playTitle');
+		byId('selected-workers-label').textContent = t('selectedWorkers');
+		sMain.querySelector('.panel h3').textContent = t('availableTasksTitle');
+		sMain.querySelectorAll('.panel h3')[1].textContent = t('runSelectedTaskTitle');
+		sMain.querySelector('.panel h3 + div + h3').textContent = t('lockedTasksTitle');
+		sMain.querySelector('label[for="task-select"]').textContent = t('taskLabel');
+		sMain.querySelector('label[for="agent-select"]').textContent = t('executingWorkerLabel');
+		sMain.querySelector('label[for="instructions"]').textContent = t('instructionsLabel');
+		sMain.querySelector('.hint').textContent = t('instructionsHint');
+		byId('tpl-clear').textContent = t('tplClear');
+		byId('tpl-metrics').textContent = t('tplMetrics');
+		byId('tpl-risk').textContent = t('tplRisk');
+		updateInstructionCount();
+	}
+
+	function onLanguageChange() {
+		applyI18nStatic();
+		if (state.tasksPayload) renderTaskBoard(state.tasksPayload);
+		if (state.selectableAgents.length) renderAgentCards();
+		if (state.boundAgents.length) renderBoundAgents();
+	}
 
 	function byId(id) { return document.getElementById(id); }
 	function show(stepId) {
-		['step-story', 'step-name', 'step-worker', 'step-goal', 'step-main']
+		['step-story', 'step-name', 'step-worker', 'step-goal', 'step-agents', 'step-main']
 			.forEach(id => byId(id).classList.toggle('hidden', id !== stepId));
 	}
 	function normalizeUserId(name) {
@@ -158,7 +578,7 @@
 	async function startGame() {
 		const username = byId('username').value.trim();
 		if (!username) {
-			byId('name-error').textContent = 'Please enter a name.';
+			byId('name-error').textContent = t('nameRequired');
 			byId('name-error').classList.remove('hidden');
 			return;
 		}
@@ -177,7 +597,7 @@
 			const existing = await jfetch(`/users/by-username/${encodeURIComponent(state.username)}`);
 			userId = String(existing.user_id || '').trim();
 		}
-		if (!userId) throw new Error('Unable to resolve user_id for this username.');
+		if (!userId) throw new Error(t('userResolveFailed'));
 		state.userId = userId;
 		await jfetch('/game/start', {
 			method: 'POST',
@@ -188,11 +608,11 @@
 
 	function renderTaskBoard(payload) {
 		state.tasksPayload = payload;
-		byId('state-user').textContent = `Player: ${state.username}`;
-		byId('state-wallet').textContent = `Wallet: ${Number(payload.wallet_balance || 0).toFixed(2)}`;
-		byId('state-progress').textContent = `Completed: ${payload.tasks_completed_count || 0}`;
-		byId('state-trial').textContent = `Trial success: ${state.successfulRuns} / 2`;
-		byId('goal-progress').textContent = `Goal progress: ${state.successfulRuns} / 2`;
+		byId('state-user').textContent = `${t('player')}: ${state.username}`;
+		byId('state-wallet').textContent = `${t('wallet')}: ${Number(payload.wallet_balance || 0).toFixed(2)}`;
+		byId('state-progress').textContent = `${t('completed')}: ${payload.tasks_completed_count || 0}`;
+		byId('state-trial').textContent = `${t('trialSuccess')}: ${state.successfulRuns} / 2`;
+		byId('goal-progress').textContent = t('goalProgress', { done: state.successfulRuns });
 
 		const available = Array.isArray(payload.available) ? payload.available : [];
 		const locked = Array.isArray(payload.locked) ? payload.locked : [];
@@ -205,12 +625,16 @@
 
 		available.forEach(task => {
 			const el = document.createElement('div');
-			el.className = `task ${task.recommended ? 'reco' : ''}`;
+			el.className = `task selectable ${task.recommended ? 'reco' : ''}`;
 			el.innerHTML = `
-				<div><strong>${task.title || task.task_id}</strong> ${task.recommended ? '<span class="pill ok">recommended</span>' : ''}</div>
-				<div class="meta">difficulty=${task.difficulty} reward=${task.base_reward} cost=${task.estimated_cost}</div>
+				<div><strong>${task.title || task.task_id}</strong> ${task.recommended ? `<span class="pill ok">${currentLang === 'zh' ? '推荐' : 'recommended'}</span>` : ''}</div>
+				<div class="meta">${currentLang === 'zh' ? '难度' : 'difficulty'}=${task.difficulty} ${t('reward')}=${task.base_reward} ${t('cost')}=${task.estimated_cost}</div>
 				<div class="meta">${task.description || ''}</div>
 			`;
+			el.addEventListener('click', () => {
+				taskSelect.value = String(task.task_id || '');
+				updateSelectedTaskMeta();
+			});
 			tasksDiv.appendChild(el);
 
 			const opt = document.createElement('option');
@@ -224,7 +648,7 @@
 			el.className = 'task';
 			el.innerHTML = `
 				<div><strong>${task.title || task.task_id}</strong></div>
-				<div class="meta">Locked: ${task.unlock_condition || 'Progress further to unlock.'}</div>
+				<div class="meta">${t('lockedPrefix')} ${task.unlock_condition || t('progressUnlock')}</div>
 			`;
 			lockedDiv.appendChild(el);
 		});
@@ -234,12 +658,13 @@
 			taskSelect.value = firstReco.task_id;
 			updateSelectedTaskMeta();
 		} else {
-			byId('selected-task-meta').textContent = 'No available tasks right now.';
+			byId('selected-task-meta').textContent = t('noTasks');
 		}
 	}
 
 	async function loadTasks() {
-		const payload = await jfetch(`/tasks?user_id=${encodeURIComponent(state.userId)}`);
+		const endpoint = currentLang === 'zh' ? '/tasks-temp-zh' : '/tasks';
+		const payload = await jfetch(`${endpoint}?user_id=${encodeURIComponent(state.userId)}`);
 		renderTaskBoard(payload);
 	}
 
@@ -247,9 +672,9 @@
 
 	function nextUnlockHint(payload) {
 		const locked = Array.isArray(payload?.locked) ? payload.locked : [];
-		if (!locked.length) return 'All current stages unlocked.';
+		if (!locked.length) return currentLang === 'zh' ? '当前阶段任务已全部解锁。' : 'All current stages unlocked.';
 		const first = locked[0] || {};
-		return String(first.unlock_condition || 'Progress further to unlock more tasks.');
+		return String(first.unlock_condition || t('progressUnlock'));
 	}
 
 	function updateSelectedTaskMeta() {
@@ -258,12 +683,179 @@
 		const available = Array.isArray(payload.available) ? payload.available : [];
 		const task = available.find(t => t.task_id === selected);
 		if (!task) return;
-		byId('selected-task-meta').textContent = `Expect: ${task.required_constraints?.join(', ') || 'n/a'} | Success >= ${task.success_threshold}`;
+		byId('selected-task-meta').textContent = `${t('expect')}: ${task.required_constraints?.join(', ') || 'n/a'} | ${t('successAtLeast')} ${task.success_threshold}`;
+		[...byId('tasks').querySelectorAll('.task.selectable')].forEach((node, idx) => {
+			const rowTaskId = String(available[idx]?.task_id || '');
+			node.classList.toggle('selected', rowTaskId === selected);
+		});
+	}
+
+	function updateInstructionCount() {
+		const text = String(byId('instructions').value || '');
+		byId('instructions-count').textContent = `${text.length} ${t('chars')}`;
+	}
+
+	function applyPromptTemplate(kind) {
+		const current = String(byId('instructions').value || '').trim();
+		const snippets = {
+			clear: currentLang === 'zh' ? '目标用户：城市白领。预算：50000。时间线：3个月。' : 'Target customer: urban professionals. Budget: 50000. Timeline: 3 months.',
+			metrics: currentLang === 'zh' ? '成功指标：转化率、CAC回本周期、首月留存率。' : 'Success metrics: conversion rate, CAC payback period, and month-1 retention.',
+			risk: currentLang === 'zh' ? '风险分析：需求不确定性、供给波动与对应缓解方案。' : 'Risk analysis: demand uncertainty, supply volatility, and mitigation actions.',
+		};
+		const piece = snippets[kind] || '';
+		byId('instructions').value = current ? `${current}\n${piece}` : piece;
+		updateInstructionCount();
+	}
+
+	function radarPoints(attrs) {
+		const keys = ['execution', 'creativity', 'stability', 'diligence', 'obedience', 'potential'];
+		const cx = 80; const cy = 80; const r = 56;
+		return keys.map((key, idx) => {
+			const angle = (-Math.PI / 2) + ((Math.PI * 2) * (idx / keys.length));
+			const score = Math.max(0, Math.min(100, Number(attrs[key] || 0))) / 100;
+			const px = cx + Math.cos(angle) * r * score;
+			const py = cy + Math.sin(angle) * r * score;
+			return `${px},${py}`;
+		}).join(' ');
+	}
+
+	function radarAxes() {
+		const keys = ['execution', 'creativity', 'stability', 'diligence', 'obedience', 'potential'];
+		const labels = currentLang === 'zh'
+			? ['执行', '创意', '稳定', '勤勉', '服从', '潜力']
+			: ['Exec', 'Creat', 'Stable', 'Dilig', 'Obey', 'Pot'];
+		const cx = 80; const cy = 80; const r = 56;
+		const lines = [];
+		const labelEls = [];
+		keys.forEach((_, idx) => {
+			const angle = (-Math.PI / 2) + ((Math.PI * 2) * (idx / keys.length));
+			const x = cx + Math.cos(angle) * r;
+			const y = cy + Math.sin(angle) * r;
+			lines.push(`<line x1="${cx}" y1="${cy}" x2="${x}" y2="${y}" stroke="#dbe2ea" stroke-width="1"/>`);
+			const lx = cx + Math.cos(angle) * (r + 14);
+			const ly = cy + Math.sin(angle) * (r + 14);
+			labelEls.push(`<text x="${lx}" y="${ly}" font-size="9" text-anchor="middle" fill="#5c6678">${labels[idx]}</text>`);
+		});
+		return `${lines.join('')}${labelEls.join('')}`;
+	}
+
+	function renderAgentCards() {
+		const root = byId('agent-cards');
+		const hint = byId('lineup-hint');
+		const confirmBtn = byId('confirm-lineup-btn');
+		root.innerHTML = '';
+		const cards = Array.isArray(state.selectableAgents) ? state.selectableAgents : [];
+		cards.forEach(agent => {
+			const name = String(agent.agent_name || '');
+			const attrs = agent.visible_attributes || {};
+			const selected = state.selectedAgentNames.includes(name);
+			const iconCount = Math.max(1, Number(agent.cost_icons || 1));
+			const icon = '●'.repeat(iconCount);
+			const card = document.createElement('div');
+			card.className = `agent-card ${name} ${selected ? 'selected' : ''}`;
+			card.innerHTML = `
+				<div class="agent-label">${agent.role_label || ''}</div>
+				<div><strong>${agent.name || name}</strong></div>
+				<div class="meta">${agent.description || ''}</div>
+				<div class="radar-wrap">
+					<svg viewBox="0 0 160 160" aria-label="agent-radar">
+						<circle cx="80" cy="80" r="56" fill="none" stroke="#dbe2ea" stroke-width="1"/>
+						<circle cx="80" cy="80" r="40" fill="none" stroke="#dbe2ea" stroke-width="1"/>
+						<circle cx="80" cy="80" r="24" fill="none" stroke="#dbe2ea" stroke-width="1"/>
+						${radarAxes()}
+						<polygon points="${radarPoints(attrs)}" fill="rgba(15,118,110,.25)" stroke="#0f766e" stroke-width="2"></polygon>
+					</svg>
+				</div>
+				<ul class="agent-points">
+					<li>${currentLang === 'zh' ? '优势' : 'Strength'}: ${Array.isArray(agent.strengths) ? agent.strengths[0] : ''}</li>
+					<li>${currentLang === 'zh' ? '短板' : 'Weakness'}: ${Array.isArray(agent.weaknesses) ? agent.weaknesses[0] : ''}</li>
+				</ul>
+				<p class="meta"><strong>${currentLang === 'zh' ? '体验特点' : 'Player feel'}:</strong> ${agent.player_feel || ''}</p>
+				<p class="meta">${t('cost')}: <span class="cost-icons">${icon}</span> (${agent.cost_level || 'medium'})</p>
+				<div class="row"><button data-agent="${name}" class="btn-secondary">${selected ? (currentLang === 'zh' ? '已选择' : 'Selected') : (currentLang === 'zh' ? '选择' : 'Select')}</button></div>
+			`;
+			root.appendChild(card);
+		});
+		root.querySelectorAll('button[data-agent]').forEach(btn => {
+			btn.addEventListener('click', () => {
+				const name = btn.getAttribute('data-agent');
+				if (!name) return;
+				if (state.selectedAgentNames.includes(name)) {
+					state.selectedAgentNames = state.selectedAgentNames.filter(x => x !== name);
+				} else {
+					if (state.selectedAgentNames.length >= 2) return;
+					state.selectedAgentNames = [...state.selectedAgentNames, name];
+				}
+				renderAgentCards();
+			});
+		});
+		hint.textContent = state.selectedAgentNames.length === 2
+			? `${currentLang === 'zh' ? '已选' : 'Selected'}: ${state.selectedAgentNames.join(' + ')}`
+			: t('selectTwoWorkers');
+		hint.className = `pill ${state.selectedAgentNames.length === 2 ? 'ok' : 'warn'}`;
+		confirmBtn.disabled = state.selectedAgentNames.length !== 2;
+	}
+
+	async function loadAgentChoices() {
+		const payload = await jfetch('/agents/choices');
+		state.selectableAgents = Array.isArray(payload.agents) ? payload.agents : [];
+		state.selectedAgentNames = state.selectableAgents.slice(0, 2).map(x => String(x.agent_name || ''));
+		renderAgentCards();
+	}
+
+	async function confirmLineup() {
+		if (state.selectedAgentNames.length !== 2) return;
+		await jfetch(`/agents/users/${encodeURIComponent(state.userId)}/lineup`, {
+			method: 'POST',
+			body: JSON.stringify({ agent_names: state.selectedAgentNames }),
+		});
+		await loadBoundAgents();
+		show('step-main');
+		await loadTasks();
+	}
+
+	function renderBoundAgents() {
+		const agentSelect = byId('agent-select');
+		const agentMeta = byId('selected-agent-meta');
+		const stateAgents = byId('state-agents');
+		const currentSelected = String(agentSelect.value || '');
+		const cardsByName = new Map(
+			(Array.isArray(state.selectableAgents) ? state.selectableAgents : [])
+				.map(item => [String(item.agent_name || ''), item])
+		);
+		agentSelect.innerHTML = '';
+		const bound = Array.isArray(state.boundAgents) ? state.boundAgents : [];
+		if (!bound.length) {
+			stateAgents.textContent = t('noSelectedAgents');
+			agentMeta.textContent = t('noAvailableAgent');
+			return;
+		}
+		stateAgents.textContent = bound.map(x => String(x.preset || '')).join(', ');
+		bound.forEach(item => {
+			const preset = String(item.preset || '');
+			const card = cardsByName.get(preset) || {};
+			const opt = document.createElement('option');
+			opt.value = preset;
+			opt.textContent = `${card.name || preset} (${card.role_label || (currentLang === 'zh' ? '员工' : 'worker')})`;
+			agentSelect.appendChild(opt);
+		});
+		const selected = bound.some(x => String(x.preset || '') === currentSelected)
+			? currentSelected
+			: String(bound[0].preset || '');
+		agentSelect.value = selected;
+		const card = cardsByName.get(selected) || {};
+		agentMeta.textContent = `${card.description || ''}`.trim() || (currentLang === 'zh' ? `本次执行员工：${selected}` : `Using ${selected} for this run.`);
+	}
+
+	async function loadBoundAgents() {
+		const payload = await jfetch(`/agents/users/${encodeURIComponent(state.userId)}`);
+		state.boundAgents = Array.isArray(payload.owned_agents) ? payload.owned_agents : [];
+		renderBoundAgents();
 	}
 
 	function startWorkingState() {
 		const result = byId('result');
-		const stages = ['Interpreting instruction...', 'Drafting response...', 'Evaluating quality...'];
+		const stages = [t('workingInterpreting'), t('workingDrafting'), t('workingEvaluating')];
 		const seq = [];
 		const start = 28 + Math.floor(Math.random() * 12);
 		seq.push(start);
@@ -271,13 +863,13 @@
 		seq.push(Math.max(0, seq[1] + (Math.random() > 0.5 ? 7 : -5) + Math.floor(Math.random() * 6)));
 		let i = 0;
 		result.classList.remove('hidden');
-		result.innerHTML = `<div><strong>${stages[i]}</strong></div><div class="meta">Agent Score (estimate): ${seq[0]}</div>`;
+		result.innerHTML = `<div><strong>${stages[i]}</strong></div><div class="meta">${t('agentScoreEstimate')}: ${seq[0]}</div>`;
 		const timer = setInterval(() => {
 			i = (i + 1) % stages.length;
 			const shown = seq.slice(0, Math.min(seq.length, i + 2));
 			result.innerHTML = `
 				<div><strong>${stages[i]}</strong></div>
-				<div class="meta">Agent Score (estimate): ${shown.join(' → ')}</div>
+				<div class="meta">${t('agentScoreEstimate')}: ${shown.join(' → ')}</div>
 			`;
 		}, 850);
 		return {
@@ -289,7 +881,10 @@
 	async function runTask() {
 		const taskId = byId('task-select').value;
 		if (!taskId) return;
-		byId('run-task-btn').disabled = true;
+		const runBtn = byId('run-task-btn');
+		const originalLabel = runBtn.textContent;
+		runBtn.disabled = true;
+		runBtn.textContent = t('running');
 		const working = startWorkingState();
 		try {
 			const runPromise = jfetch('/run-task', {
@@ -297,21 +892,25 @@
 				body: JSON.stringify({
 					task_id: taskId,
 					user_id: state.userId,
-					instructions: byId('instructions').value || ''
+					instructions: byId('instructions').value || '',
+					agent_name: byId('agent-select').value || ''
 				})
 			});
 			const anticipationDelay = 1000 + Math.floor(Math.random() * 1000);
 			const [payload] = await Promise.all([runPromise, sleep(anticipationDelay)]);
+			const displayPayload = localizeApiPayload(payload);
 			if (payload.success) state.successfulRuns += 1;
-			const issues = (payload.feedback && payload.feedback.issues) || [];
-			const suggestions = (payload.feedback && payload.feedback.suggestions) || [];
-			const well = payload.what_you_did_well || [];
-			const gotRight = payload.what_you_got_right || [];
-			const agentOutputs = Array.isArray(payload.agent_outputs) ? payload.agent_outputs : [];
+			const issues = (displayPayload.feedback && displayPayload.feedback.issues) || [];
+			const suggestions = (displayPayload.feedback && displayPayload.feedback.suggestions) || [];
+			const well = displayPayload.what_you_did_well || [];
+			const gotRight = displayPayload.what_you_got_right || [];
+			const agentOutputs = Array.isArray(displayPayload.agent_outputs) ? displayPayload.agent_outputs : [];
+			const fullOutput = String(displayPayload.agent_output_full || '');
+			const costBreakdown = displayPayload.cost_breakdown || {};
 			const result = byId('result');
 			const currentBoard = state.tasksPayload || {};
 			const unlockHint = nextUnlockHint(currentBoard);
-			const delta = Number(payload.score_delta || 0);
+			const delta = Number(displayPayload.score_delta || 0);
 			if (Number.isFinite(delta) && payload.score_delta !== null && payload.score_delta !== undefined) {
 				state.recentDeltas.push(delta);
 				if (state.recentDeltas.length > 5) state.recentDeltas.shift();
@@ -320,45 +919,68 @@
 				? state.recentDeltas.reduce((a, b) => a + b, 0) / state.recentDeltas.length
 				: 0;
 			state.kpiScore = Math.max(0, Math.min(100, state.kpiScore + trend * 0.6 + (payload.success ? 1.5 : -1.0)));
-			const finalScore = Number(payload.current_score ?? payload.score ?? 0);
+			const finalScore = Number(displayPayload.current_score ?? displayPayload.score ?? 0);
 			const scoreSeq = [...working.scoreSeq, finalScore];
 			result.classList.remove('hidden');
+			result.classList.remove('success', 'failed');
+			result.classList.add(payload.success ? 'success' : 'failed');
 			result.innerHTML = `
-				<div><strong>${payload.headline || payload.message || payload.summary || 'Result'}</strong></div>
-				<div>${payload.message || ''}</div>
-				<div>Status: ${payload.status} | Agent Score: ${finalScore} | Reward: ${payload.reward} | Cost: ${payload.cost}</div>
-				<div>Agent score dynamics: ${scoreSeq.join(' → ')}</div>
-				<div>Player KPI (recent trend): ${state.kpiScore.toFixed(1)}</div>
-				<div>Wallet: ${payload.wallet_before} -> ${payload.wallet_after} (net ${payload.net_result})</div>
-				<div>Trial progress: ${state.successfulRuns} / 2 successful tasks</div>
-				<div>Next unlock hint: ${unlockHint}</div>
-				${payload.insight ? `<div><em>${payload.insight}</em></div>` : ''}
-				${payload.improvement_message ? `<div class="pill ok">${payload.improvement_message}</div>` : ''}
-				${payload.score_comparison ? `<div>Score change: ${payload.score_comparison.previous_score ?? 'n/a'} -> ${payload.score_comparison.current_score ?? 'n/a'} (delta ${payload.score_comparison.delta ?? 'n/a'})</div>` : ''}
-				${payload.near_miss ? `<div class="pill warn">Near miss: ${payload.hint || ''}</div>` : ''}
-				${well.length ? `<div><strong>What you did well:</strong><ul class="issues">${well.map(x => `<li>${x}</li>`).join('')}</ul></div>` : ''}
-				${gotRight.length ? `<div><strong>What was correct:</strong><ul class="issues">${gotRight.map(x => `<li>${x}</li>`).join('')}</ul></div>` : ''}
-				${payload.missing_focus ? `<div><strong>Missing focus:</strong> ${payload.missing_focus}</div>` : ''}
-				${payload.retry_suggestion ? `<div><strong>Retry tip:</strong> ${payload.retry_suggestion}</div>` : ''}
-				<div><strong>Learning loop:</strong> ${payload.success ? 'Clear prompts improved the output quality.' : 'Use the retry tip and run again to improve score.'}</div>
-				${issues.length ? `<div><strong>Issues:</strong><ul class="issues">${issues.map(x => `<li>${x}</li>`).join('')}</ul></div>` : ''}
-				${suggestions.length ? `<div><strong>Suggestions:</strong><ul class="issues">${suggestions.map(x => `<li>${x}</li>`).join('')}</ul></div>` : ''}
+				<div><strong>${displayPayload.headline || displayPayload.message || displayPayload.summary || t('result')}</strong></div>
+				<div>${displayPayload.message || ''}</div>
+				<div class="result-grid">
+					<div class="metric"><div class="k">${t('status')}</div><div class="v">${displayPayload.status}</div></div>
+					<div class="metric"><div class="k">${t('agentScore')}</div><div class="v">${finalScore}</div></div>
+					<div class="metric"><div class="k">${t('playerKpi')}</div><div class="v">${state.kpiScore.toFixed(1)}</div></div>
+					<div class="metric"><div class="k">${t('reward')}</div><div class="v">${displayPayload.reward}</div></div>
+					<div class="metric"><div class="k">${t('cost')}</div><div class="v">${displayPayload.cost}</div></div>
+					<div class="metric"><div class="k">${t('net')}</div><div class="v">${displayPayload.net_result}</div></div>
+				</div>
+				<div>${t('costBreakdown')}: ${t('model')} ${Number(costBreakdown.model_cost || 0).toFixed(4)} + ${t('agent')} ${Number(costBreakdown.agent_cost || 0).toFixed(4)} = ${Number(costBreakdown.total_cost || displayPayload.cost || 0).toFixed(4)}</div>
+				<div>${t('scoreDynamics')}: ${scoreSeq.join(' → ')}</div>
+				<div>${t('wallet')}: ${displayPayload.wallet_before} -> ${displayPayload.wallet_after} (${t('net')} ${displayPayload.net_result})</div>
+				<div>${t('trialProgress')}: ${state.successfulRuns} / 2</div>
+				<div>${t('nextUnlockHint')}: ${unlockHint}</div>
+				${displayPayload.insight ? `<div><em>${displayPayload.insight}</em></div>` : ''}
+				${displayPayload.improvement_message ? `<div class="pill ok">${displayPayload.improvement_message}</div>` : ''}
+				${displayPayload.score_comparison ? `<div>${t('scoreChange')}: ${displayPayload.score_comparison.previous_score ?? 'n/a'} -> ${displayPayload.score_comparison.current_score ?? 'n/a'} (delta ${displayPayload.score_comparison.delta ?? 'n/a'})</div>` : ''}
+				${displayPayload.near_miss ? `<div class="pill warn">${t('nearMiss')}: ${displayPayload.hint || ''}</div>` : ''}
+				${well.length ? `<div><strong>${t('whatWell')}:</strong><ul class="issues">${well.map(x => `<li>${x}</li>`).join('')}</ul></div>` : ''}
+				${gotRight.length ? `<div><strong>${t('whatRight')}:</strong><ul class="issues">${gotRight.map(x => `<li>${x}</li>`).join('')}</ul></div>` : ''}
+				${displayPayload.missing_focus ? `<div><strong>${t('missingFocus')}:</strong> ${displayPayload.missing_focus}</div>` : ''}
+				${displayPayload.retry_suggestion ? `<div><strong>${t('retryTip')}:</strong> ${displayPayload.retry_suggestion}</div>` : ''}
+				<div><strong>${t('learningLoop')}:</strong> ${payload.success ? t('learningSuccess') : t('learningFail')}</div>
+				${issues.length ? `<div><strong>${t('issues')}:</strong><ul class="issues">${issues.map(x => `<li>${x}</li>`).join('')}</ul></div>` : ''}
+				${suggestions.length ? `<div><strong>${t('suggestions')}:</strong><ul class="issues">${suggestions.map(x => `<li>${x}</li>`).join('')}</ul></div>` : ''}
+				${
+					fullOutput
+						? `<details class="output-block" open>
+								<summary>${t('agentOutputFull')}</summary>
+								<div class="output-body"><pre>${fullOutput.replace(/</g, '&lt;')}</pre></div>
+							</details>`
+						: ''
+				}
 				${
 					agentOutputs.length
-						? `<details style="margin-top:10px;"><summary><strong>Agent Output</strong> (${agentOutputs.length} step${agentOutputs.length > 1 ? 's' : ''})</summary>
-								${agentOutputs.map(s => `<div class="task"><div class="meta">${s.agent_name}</div><pre style="white-space:pre-wrap; margin:6px 0 0;">${String(s.output || '').replace(/</g, '&lt;')}</pre></div>`).join('')}
+						? `<details class="output-block" style="margin-top:10px;"><summary>${t('allStepOutputs')} (${agentOutputs.length})</summary>
+								<div class="output-body">
+								${agentOutputs.map(s => `<div class="task"><div class="meta">${s.agent_name}</div><pre>${String(s.output || '').replace(/</g, '&lt;')}</pre></div>`).join('')}
+								</div>
 							</details>`
 						: ''
 				}
 			`;
 			await loadTasks();
+			await loadBoundAgents();
 		} catch (err) {
 			const result = byId('result');
 			result.classList.remove('hidden');
-			result.innerHTML = `<div class="pill err">Run failed: ${String(err.message || err)}</div>`;
+			result.classList.remove('success');
+			result.classList.add('failed');
+			result.innerHTML = `<div class="pill err">${t('runFailed')}: ${String(err.message || err)}</div>`;
 		} finally {
 			working.stop();
-			byId('run-task-btn').disabled = false;
+			runBtn.disabled = false;
+			runBtn.textContent = originalLabel;
 		}
 	}
 
@@ -366,12 +988,25 @@
 	byId('start-managing-btn').addEventListener('click', startGame);
 	byId('to-goal-btn').addEventListener('click', () => show('step-goal'));
 	byId('start-first-task-btn').addEventListener('click', async () => {
-		show('step-main');
-		await loadTasks();
+		show('step-agents');
+		await loadAgentChoices();
 	});
+	byId('confirm-lineup-btn').addEventListener('click', confirmLineup);
 	byId('refresh-tasks-btn').addEventListener('click', loadTasks);
 	byId('task-select').addEventListener('change', updateSelectedTaskMeta);
+	byId('agent-select').addEventListener('change', renderBoundAgents);
+	byId('instructions').addEventListener('input', updateInstructionCount);
+	byId('tpl-clear').addEventListener('click', () => applyPromptTemplate('clear'));
+	byId('tpl-metrics').addEventListener('click', () => applyPromptTemplate('metrics'));
+	byId('tpl-risk').addEventListener('click', () => applyPromptTemplate('risk'));
 	byId('run-task-btn').addEventListener('click', runTask);
+	byId('lang-toggle-btn').addEventListener('click', () => {
+		currentLang = currentLang === 'zh' ? 'en' : 'zh';
+		localStorage.setItem('play_lang', currentLang);
+		onLanguageChange();
+	});
+	applyI18nStatic();
+	updateInstructionCount();
 </script>
 </body>
 </html>

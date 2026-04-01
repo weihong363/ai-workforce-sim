@@ -7,6 +7,17 @@ def _patch_persistence(monkeypatch) -> None:
     monkeypatch.setattr(run_task_module, "update_run_status", lambda *args, **kwargs: None)
     monkeypatch.setattr(run_task_module, "persist_workflow_steps", lambda *args, **kwargs: None)
     monkeypatch.setattr(run_task_module, "persist_asset", lambda *args, **kwargs: "asset_cache_test")
+    import game_modules.business_sim.tasks as task_module
+
+    seed_tasks = task_module.get_seed_tasks()
+    monkeypatch.setattr(task_module, "list_tasks", lambda: seed_tasks)
+
+    def _get_task(name: str):
+        if name not in seed_tasks:
+            raise ValueError(f"Unknown task: {name}")
+        return seed_tasks[name]
+
+    monkeypatch.setattr(task_module, "get_task", _get_task)
 
 
 def test_task_result_cached_and_reused(monkeypatch) -> None:

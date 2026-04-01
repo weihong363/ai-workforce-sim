@@ -189,15 +189,15 @@ curl http://localhost:8000/runs/{run_id}
   "workflow_steps": [
     {
       "step_index": 0,
-      "agent_name": "market_analyst",
-      "prompt": "Agent: market_analyst\n...",
+      "agent_name": "operator",
+      "prompt": "Agent: operator\n...",
       "output": "MOCK_LLM_RESPONSE: ...",
       "created_at": "2026-03-27T06:11:41.178585+00:00"
     },
     {
       "step_index": 1,
-      "agent_name": "strategy_writer",
-      "prompt": "Agent: strategy_writer\n...",
+      "agent_name": "maverick",
+      "prompt": "Agent: maverick\n...",
       "output": "MOCK_LLM_RESPONSE: ...",
       "created_at": "2026-03-27T06:11:41.178585+00:00"
     }
@@ -228,7 +228,7 @@ curl http://localhost:8000/assets/{asset_id}
   "payload": {
     "summary": "MOCK_LLM_RESPONSE: ...",
     "score": 100.0,
-    "steps": ["market_analyst", "strategy_writer"]
+    "steps": ["operator", "maverick"]
   },
   "created_at": "2026-03-27T06:11:41.178585+00:00"
 }
@@ -259,7 +259,7 @@ INFO:     Application startup complete.
 ```json
 {"event": "run_start", "task_name": "launch_coffee_subscription", "module_name": "business_sim"}
 {"event": "module_loaded", "module_name": "business_sim"}
-{"event": "workflow_completed", "steps": 2, "agents": ["market_analyst", "strategy_writer"]}
+{"event": "workflow_completed", "steps": 2, "agents": ["operator", "maverick"]}
 {"event": "evaluation_result", "task_name": "launch_coffee_subscription", "final_score": 100.0}
 {"event": "asset_created", "task_name": "launch_coffee_subscription", "asset_type": "business_plan"}
 {"event": "run_end", "task_name": "launch_coffee_subscription", "run_id": "abc123...", "asset_id": "def456..."}

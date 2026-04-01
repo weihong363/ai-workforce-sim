@@ -335,16 +335,16 @@ def test_junior_vs_senior_output_is_visibly_different(monkeypatch) -> None:
     junior = run_task_module.run_task(
         "tsk_assess_a_city_launch_for_d9bbd92d",
         agent_overrides={
-            "market_analyst": {"level": "junior", "obedience": 0.7, "initiative": 0.35, "effort": 0.5},
-            "strategy_writer": {"level": "junior", "obedience": 0.7, "initiative": 0.35, "effort": 0.5},
+            "operator": {"level": "junior", "obedience": 0.7, "initiative": 0.35, "effort": 0.5},
+            "maverick": {"level": "junior", "obedience": 0.7, "initiative": 0.35, "effort": 0.5},
         },
         instructions="Target customer and pricing required.",
     )
     senior = run_task_module.run_task(
         "tsk_assess_a_city_launch_for_d9bbd92d",
         agent_overrides={
-            "market_analyst": {"level": "senior", "obedience": 0.5, "initiative": 0.8, "effort": 0.85},
-            "strategy_writer": {"level": "senior", "obedience": 0.5, "initiative": 0.8, "effort": 0.85},
+            "operator": {"level": "senior", "obedience": 0.5, "initiative": 0.8, "effort": 0.85},
+            "maverick": {"level": "senior", "obedience": 0.5, "initiative": 0.8, "effort": 0.85},
         },
         instructions="Target customer and pricing required.",
     )
@@ -403,8 +403,8 @@ def test_junior_clear_instruction_improves_constraint_hits(monkeypatch) -> None:
     monkeypatch.setattr("core_engine.agent_controller.random.uniform", lambda _a, _b: 0.0)
 
     junior_overrides = {
-        "market_analyst": {"level": "junior", "obedience": 0.75, "initiative": 0.35, "effort": 0.55},
-        "strategy_writer": {"level": "junior", "obedience": 0.75, "initiative": 0.35, "effort": 0.55},
+        "operator": {"level": "junior", "obedience": 0.75, "initiative": 0.35, "effort": 0.55},
+        "maverick": {"level": "junior", "obedience": 0.75, "initiative": 0.35, "effort": 0.55},
     }
     vague = run_task_module.run_task(
         "tsk_assess_a_city_launch_for_d9bbd92d",

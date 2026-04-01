@@ -8,7 +8,6 @@ import time
 import uuid
 from typing import Dict, Optional
 
-import structlog
 from core_engine.agent_behavior import apply_behavior_to_output, compute_effective_attributes
 from core_engine.cache import get_cache
 from core_engine.config import Settings
@@ -283,6 +282,7 @@ class AgentController:
             model=model_name,
             prompt=prompt,
             behavior_signature=behavior_signature,
+            agent_name=agent_name,
         )
         if self.enable_agent_cache:
             cached = cache.get_agent(cache_key)
@@ -298,6 +298,7 @@ class AgentController:
                 return {
                     "agent_name": agent_name,
                     "prompt": prompt,
+                    "raw_output": str(cached["output"]),
                     "output": apply_behavior_to_output(
                         self._shape_output_for_profile(str(cached["output"]), task_input, profile, effective),
                         effective,
@@ -362,7 +363,7 @@ class AgentController:
         # Store result temporarily in cache, then return after a randomized delay.
         # Junior agents use a wider/slower delay band than senior agents.
         temp_key = uuid.uuid4().hex
-        cache.set_temp_result(temp_key, record, ttl_seconds=60)
+        cache.set_temp_result(temp_key, record, ttl_seconds=self.settings.temp_result_ttl_seconds)
         delay_min, delay_max = self._result_delay_range_seconds(profile)
         wait_seconds = random.uniform(delay_min, delay_max)
         artificial_delay_ms = int(profile.get("artificial_delay_ms", 0) or 0)
@@ -381,12 +382,14 @@ class AgentController:
                 model=delayed_record["model"],
                 prompt=prompt,
                 behavior_signature=behavior_signature,
+                agent_name=agent_name,
             )
             cache.set_agent(active_cache_key, delayed_record)
 
         return {
             "agent_name": agent_name,
             "prompt": prompt,
+            "raw_output": str(delayed_record["output"]),
             "output": apply_behavior_to_output(
                 self._shape_output_for_profile(str(delayed_record["output"]), task_input, profile, effective),
                 effective,

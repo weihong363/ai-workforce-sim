@@ -6,10 +6,10 @@ consume the same task definition shape.
 
 from __future__ import annotations
 
+import hashlib
 import json
 import re
 import time
-import hashlib
 from pathlib import Path
 from typing import Dict, List
 
@@ -19,7 +19,7 @@ from core_engine.id_generator import generate_task_record_id
 from core_engine.task_store import delete_task as db_delete_task
 from core_engine.task_store import get_task as db_get_task
 from core_engine.task_store import list_tasks as db_list_tasks, upsert_task as db_upsert_task
-from game_modules.business_sim.agents import AGENTS
+from game_modules.business_sim.agents import supported_workflow_agent_names
 
 MODULE_NAME = "business_sim"
 _MIN_NORMAL_TASKS = 3
@@ -79,12 +79,13 @@ def normalize_task(task_id: str, task_config: Dict[str, object]) -> Dict[str, ob
         "cost_estimate": round(estimated_cost, 2),
         "constraints": required_constraints,
         "is_tutorial": tutorial_only,
-        "workflow": list(
-            cfg.get("workflow", ["market_analyst", "strategy_writer"]) or ["market_analyst", "strategy_writer"]),
         "max_total_tokens": int(cfg.get("max_total_tokens", 320) or 320),
         "tutorial_order": int(cfg.get("tutorial_order", 9999) or 9999),
         "strict_constraints": bool(cfg.get("strict_constraints", False)),
     }
+    workflow_raw = cfg.get("workflow")
+    if isinstance(workflow_raw, list) and workflow_raw:
+        normalized["workflow"] = [str(name) for name in workflow_raw if str(name).strip()]
     return normalized
 
 
@@ -100,8 +101,6 @@ def generate_task_id(task_config: Dict[str, object], seed_hint: str | None = Non
         "description": description,
         "difficulty": str(cfg.get("difficulty", "easy")),
         "tutorial_only": bool(cfg.get("tutorial_only", cfg.get("is_tutorial", False))),
-        "workflow": list(
-            cfg.get("workflow", ["market_analyst", "strategy_writer"]) or ["market_analyst", "strategy_writer"]),
     }
     digest = hashlib.sha1(
         json.dumps(fingerprint_payload, ensure_ascii=True, sort_keys=True).encode("utf-8")
@@ -131,16 +130,17 @@ def validate_task_schema(task_id: str, task_config: Dict[str, object]) -> None:
         raise ValueError(f"Task '{task_id}' estimated_cost must be >= 0")
     if not isinstance(cfg["required_constraints"], list):
         raise ValueError(f"Task '{task_id}' required_constraints must be a list")
-    workflow = cfg.get("workflow", [])
-    if not isinstance(workflow, list) or not workflow:
-        raise ValueError(f"Task '{task_id}' workflow must be a non-empty list")
-    known_agents = set(str(name) for name in AGENTS.keys())
-    unknown = [str(name) for name in workflow if str(name) not in known_agents]
-    if unknown:
-        raise ValueError(
-            f"Task '{task_id}' workflow contains unknown agents: {unknown}. "
-            f"Known agents: {sorted(known_agents)}"
-        )
+    workflow = cfg.get("workflow")
+    if workflow is not None:
+        if not isinstance(workflow, list) or not workflow:
+            raise ValueError(f"Task '{task_id}' workflow must be a non-empty list when provided")
+        known_agents = set(str(name) for name in supported_workflow_agent_names())
+        unknown = [str(name) for name in workflow if str(name) not in known_agents]
+        if unknown:
+            raise ValueError(
+                f"Task '{task_id}' workflow contains unknown agents: {unknown}. "
+                f"Known agents: {sorted(known_agents)}"
+            )
 
 
 def to_public_task(task_id: str, task_config: Dict[str, object]) -> Dict[str, object]:
@@ -220,8 +220,8 @@ def _generate_task_via_ai() -> Dict[str, object]:
     controller = AgentController(settings=settings, purpose="task")
     prompt = (
         "Generate ONE new business simulation task as JSON only with keys: "
-        "task_id,input,workflow,max_total_tokens,is_tutorial,reward,difficulty,cost_estimate,constraints. "
-        "Rules: workflow must be [\"market_analyst\",\"strategy_writer\"], "
+        "task_id,input,max_total_tokens,is_tutorial,reward,difficulty,cost_estimate,constraints. "
+        "Rules: "
         "is_tutorial must be false, difficulty in [easy,medium,hard], constraints as short strings."
     )
     result = controller.run_step(
@@ -238,7 +238,6 @@ def _generate_task_via_ai() -> Dict[str, object]:
 
     task_id = generate_task_id(raw_task := {
         "input": str(payload.get("input", "Assess a new business opportunity with clear trade-offs.")),
-        "workflow": ["market_analyst", "strategy_writer"],
         "max_total_tokens": int(payload.get("max_total_tokens", 320) or 320),
         "is_tutorial": False,
         "reward": float(payload.get("reward", 40.0) or 40.0),

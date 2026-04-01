@@ -14,7 +14,10 @@ from core_engine.config import get_settings
 from core_engine.id_generator import generate_id, normalize_id
 
 DEFAULT_STARTING_WALLET = 120.0
-DEFAULT_OWNED_AGENTS = [{"agent_id": "junior_001", "preset": "junior_worker", "level": "junior", "affinity": 0.5}]
+DEFAULT_OWNED_AGENTS = [
+    {"agent_id": "uagt_operator_default", "preset": "operator", "level": "junior", "status": "active", "affinity": 0.5},
+    {"agent_id": "uagt_maverick_default", "preset": "maverick", "level": "junior", "status": "active", "affinity": 0.5},
+]
 
 
 def _get_connection(database_url: str):
@@ -872,3 +875,34 @@ def unbind_agent_from_user(
     user["owned_agents"] = remaining
     upsert_user_state(user, database_url)
     return {"agent_id": normalized_agent_id, "deleted": True}
+
+
+def set_user_agent_lineup(
+        user_id: str,
+        database_url: str,
+        module_name: Optional[str],
+        lineup_agents: List[Dict[str, object]],
+) -> List[Dict[str, object]]:
+    selected_module = _active_module_name(module_name)
+    normalized_user_id = normalize_id(user_id, "user_id")
+    user = get_user_by_id(normalized_user_id, database_url, module_name=selected_module)
+    if user is None:
+        raise ValueError(f"User {normalized_user_id} not found")
+    cleaned: List[Dict[str, object]] = []
+    for item in lineup_agents or []:
+        if not isinstance(item, dict):
+            continue
+        cleaned.append(
+            {
+                "agent_id": normalize_id(str(item.get("agent_id") or generate_id("uagt")), "agent_id"),
+                "preset": normalize_id(str(item.get("preset") or ""), "preset", max_length=64),
+                "level": str(item.get("level") or "junior"),
+                "status": str(item.get("status") or "active"),
+                "affinity": float(item.get("affinity", 0.5) or 0.5),
+            }
+        )
+    if len(cleaned) < 2:
+        raise ValueError("At least two agents are required for lineup")
+    user["owned_agents"] = cleaned
+    upsert_user_state(user, database_url)
+    return cleaned

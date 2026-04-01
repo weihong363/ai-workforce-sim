@@ -289,7 +289,7 @@ def persist_workflow_steps(run_id: str, workflow_results: List[Dict[str, object]
                     index,
                     step.get("agent_name", ""),
                     step.get("prompt", ""),
-                    step.get("output", ""),
+                    step.get("raw_output", step.get("output", "")),
                     step.get("provider", ""),
                     step.get("model", ""),
                     step.get("agent_level"),

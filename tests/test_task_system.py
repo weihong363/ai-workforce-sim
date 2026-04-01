@@ -1,6 +1,7 @@
 from fastapi.testclient import TestClient
 
 import api.app as app_module
+import api.routes.tasks as tasks_route_module
 import api.run_task as run_task_module
 from game_modules.business_sim import progression, tasks
 
@@ -36,7 +37,7 @@ def test_tasks_endpoint_respects_tutorial_visibility(monkeypatch) -> None:
                 "estimated_cost": 2.0,
                 "required_constraints": ["target customer"],
                 "tutorial_only": True,
-                "workflow": ["market_analyst"],
+                "workflow": ["operator"],
             },
         ),
         "tsk_assess_a_city_launch_for_d9bbd92d": tasks.normalize_task(
@@ -49,7 +50,7 @@ def test_tasks_endpoint_respects_tutorial_visibility(monkeypatch) -> None:
                 "estimated_cost": 8.0,
                 "required_constraints": ["pricing", "risk"],
                 "tutorial_only": False,
-                "workflow": ["market_analyst", "strategy_writer"],
+                "workflow": ["operator", "maverick"],
             },
         ),
     }
@@ -81,7 +82,7 @@ def test_tasks_endpoint_respects_tutorial_visibility(monkeypatch) -> None:
         def list_tasks() -> dict:
             return task_defs
 
-    monkeypatch.setattr(app_module.ModuleFacade, "from_name", lambda *_args, **_kwargs: _Facade())
+    monkeypatch.setattr(tasks_route_module.ModuleFacade, "from_name", lambda *_args, **_kwargs: _Facade())
 
     with TestClient(app_module.app) as client:
         new_resp = client.get("/tasks", params={"user_id": "user_new"})
@@ -123,7 +124,7 @@ def test_task_detail_endpoint_visibility(monkeypatch) -> None:
         def list_tasks() -> dict:
             return task_defs
 
-    monkeypatch.setattr(app_module.ModuleFacade, "from_name", lambda *_args, **_kwargs: _Facade())
+    monkeypatch.setattr(tasks_route_module.ModuleFacade, "from_name", lambda *_args, **_kwargs: _Facade())
 
     with TestClient(app_module.app) as client:
         ok_resp = client.get("/tasks/tsk_tutorial_1_define_the_ta_4e9617a3", params={"user_id": "user_new"})
@@ -159,7 +160,7 @@ def test_benchmark_models_uses_same_task_id_path(monkeypatch) -> None:
 
     class _Facade:
         class _Agents:
-            AGENTS = {"market_analyst": {}, "strategy_writer": {}}
+            AGENTS = {"operator": {}, "maverick": {}}
 
         agents = _Agents()
 
@@ -216,7 +217,7 @@ def test_tasks_catalog_endpoint_returns_global_overview(monkeypatch) -> None:
         def list_tasks() -> dict:
             return task_defs
 
-    monkeypatch.setattr(app_module.ModuleFacade, "from_name", lambda *_args, **_kwargs: _Facade())
+    monkeypatch.setattr(tasks_route_module.ModuleFacade, "from_name", lambda *_args, **_kwargs: _Facade())
 
     with TestClient(app_module.app) as client:
         resp = client.get("/tasks-catalog")
@@ -259,7 +260,7 @@ def test_admin_task_management_crud_endpoints(monkeypatch) -> None:
                 raise ValueError(f"Unknown task: {task_id}")
             return dict(store[task_id])
 
-    monkeypatch.setattr(app_module.ModuleFacade, "from_name", lambda *_args, **_kwargs: _Facade())
+    monkeypatch.setattr(tasks_route_module.ModuleFacade, "from_name", lambda *_args, **_kwargs: _Facade())
 
     create_body = {
         "task_config": {
@@ -363,7 +364,7 @@ def test_manual_upsert_uses_ulid_style_id_and_no_post_persist_read(monkeypatch) 
             "required_constraints": [],
             "success_threshold": 60,
             "tutorial_only": False,
-            "workflow": ["market_analyst"],
+            "workflow": ["operator"],
         },
         source="manual",
     )

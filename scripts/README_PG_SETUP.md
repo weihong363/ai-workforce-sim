@@ -212,19 +212,19 @@ WHERE a.run_id = 'test_run_001';
 
 ### Run 1: tsk_assess_a_city_launch_for_d9bbd92d
 - **Score**: 95.5
-- **Agents**: market_analyst → strategy_writer
+- **Agents**: operator → maverick
 - **Asset**: 咖啡订阅商业计划
 - **Recommendation**: proceed
 
 ### Run 2: evaluate_market_expansion
 - **Score**: 88.0
-- **Agents**: market_analyst → strategy_writer
+- **Agents**: operator → maverick
 - **Asset**: 市场扩张评估
 - **Recommendation**: proceed_with_caution
 
 ### Run 3: optimize_pricing_strategy
 - **Score**: 92.5
-- **Agents**: market_analyst → strategy_writer
+- **Agents**: operator → maverick
 - **Asset**: 定价优化策略
 - **Recommendation**: implement
 

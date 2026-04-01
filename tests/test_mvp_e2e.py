@@ -7,8 +7,8 @@ def test_run_task_end_to_end(test_run_data) -> None:
     
     workflow_results = result["workflow_results"]
     assert len(workflow_results) == 2
-    assert workflow_results[0]["agent_name"] == "market_analyst"
-    assert workflow_results[1]["agent_name"] == "strategy_writer"
+    assert workflow_results[0]["agent_name"] == "operator"
+    assert workflow_results[1]["agent_name"] == "maverick"
     assert workflow_results[0]["output"].startswith("MOCK_LLM_RESPONSE:")
     
     evaluation = result["evaluation"]
@@ -17,4 +17,4 @@ def test_run_task_end_to_end(test_run_data) -> None:
     asset = result["asset"]
     assert asset["asset_type"] == "business_plan"
     assert asset["payload"]["score"] == 100.0
-    assert asset["payload"]["steps"] == ["market_analyst", "strategy_writer"]
+    assert asset["payload"]["steps"] == ["operator", "maverick"]

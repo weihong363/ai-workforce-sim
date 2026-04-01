@@ -1,5 +1,6 @@
 """Game-agnostic behavior shaping for agent runtime attributes."""
 
+import random
 from typing import Dict
 
 
@@ -22,6 +23,7 @@ def compute_effective_attributes(
     affinity = float(profile.get("affinity", 0.5))
     clarity = _clamp(float(profile.get("clarity_score", 0.5)))
     level = str(profile.get("level", "mid")).lower()
+    volatility = _clamp(float(profile.get("volatility", 0.0) or 0.0))
 
     affinity_delta = (affinity - 0.5) * 0.4
     clarity_delta = (clarity - 0.5) * 0.35
@@ -35,11 +37,18 @@ def compute_effective_attributes(
         level_effort_delta = 0.08
         level_initiative_delta = 0.08
 
+    variance = 0.0
+    if volatility > 0:
+        variance = random.uniform(-1.0, 1.0) * volatility * 0.28
+
     return {
-        "obedience": _clamp((obedience + affinity_delta + clarity_delta - (low_clarity_penalty * 0.2)) * obedience_w),
-        "initiative": _clamp((initiative + level_initiative_delta) * initiative_w),
-        "effort": _clamp((effort + affinity_delta + clarity_delta + level_effort_delta - (low_clarity_penalty * 0.5)) * effort_w),
+        "obedience": _clamp((obedience + affinity_delta + clarity_delta - (low_clarity_penalty * 0.2) - abs(
+            variance * 0.35)) * obedience_w),
+        "initiative": _clamp((initiative + level_initiative_delta + (variance * 0.75)) * initiative_w),
+        "effort": _clamp((effort + affinity_delta + clarity_delta + level_effort_delta - (
+                low_clarity_penalty * 0.5) + variance) * effort_w),
         "affinity": _clamp(affinity),
+        "volatility": volatility,
     }
 
 

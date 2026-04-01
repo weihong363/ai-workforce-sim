@@ -98,7 +98,7 @@ def test_user_agent_binding_routes(monkeypatch) -> None:
 
     user = {
         "user_id": "usr_1",
-        "owned_agents": [{"agent_id": "uagt_1", "preset": "market_analyst", "level": "junior", "status": "active"}],
+        "owned_agents": [{"agent_id": "uagt_1", "preset": "operator", "level": "junior", "status": "active"}],
     }
 
     monkeypatch.setattr(
@@ -109,7 +109,7 @@ def test_user_agent_binding_routes(monkeypatch) -> None:
     monkeypatch.setattr(
         agents_route.user_store,
         "bind_agent_to_user",
-        lambda **kwargs: {"agent_id": "uagt_2", "preset": "strategy_writer", "level": "senior", "status": "active",
+        lambda **kwargs: {"agent_id": "uagt_2", "preset": "maverick", "level": "senior", "status": "active",
                           "affinity": 0.5},
     )
     monkeypatch.setattr(
@@ -120,9 +120,47 @@ def test_user_agent_binding_routes(monkeypatch) -> None:
 
     with TestClient(app_module.app) as client:
         listed = client.get("/agents/users/usr_1")
-        bound = client.post("/agents/users/usr_1/bind", json={"agent_name": "strategy_writer", "status": "active"})
+        bound = client.post("/agents/users/usr_1/bind", json={"agent_name": "maverick", "status": "active"})
         unbound = client.delete("/agents/users/usr_1/bind/uagt_2")
 
     assert listed.status_code == 200
     assert bound.status_code == 200
     assert unbound.status_code == 200
+
+
+def test_agent_choices_and_lineup_routes(monkeypatch) -> None:
+    class _Settings:
+        database_url = "postgresql://fake"
+        active_game_module = "business_sim"
+
+    class _Agents:
+        @staticmethod
+        def list_selectable_agents():
+            return [
+                {"agent_name": "operator", "name": "Operator", "role_label": "Reliable Operator",
+                 "visible_attributes": {"execution": 60}},
+                {"agent_name": "maverick", "name": "Maverick", "role_label": "High-Risk Creative",
+                 "visible_attributes": {"execution": 65}},
+                {"agent_name": "slacker", "name": "Slacker", "role_label": "Cheap but Unstable",
+                 "visible_attributes": {"execution": 35}},
+            ]
+
+    class _Facade:
+        agents = _Agents()
+
+    monkeypatch.setattr(agents_route, "get_settings", lambda: _Settings())
+    monkeypatch.setattr(agents_route.ModuleFacade, "from_name", lambda *_a, **_k: _Facade())
+    monkeypatch.setattr(
+        agents_route.user_store,
+        "set_user_agent_lineup",
+        lambda **kwargs: kwargs["lineup_agents"],
+    )
+
+    with TestClient(app_module.app) as client:
+        choices = client.get("/agents/choices")
+        lineup = client.post("/agents/users/usr_1/lineup", json={"agent_names": ["operator", "maverick"]})
+
+    assert choices.status_code == 200
+    assert len(choices.json().get("agents", [])) == 3
+    assert lineup.status_code == 200
+    assert len(lineup.json().get("lineup", [])) == 2

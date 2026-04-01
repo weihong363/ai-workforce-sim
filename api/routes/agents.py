@@ -2,12 +2,37 @@
 
 from fastapi import APIRouter, HTTPException, Path
 
-from api.schemas import AgentCreateRequest, AgentUpdateRequest, AgentUserBindRequest
+from api.schemas import AgentCreateRequest, AgentLineupRequest, AgentUpdateRequest, AgentUserBindRequest
+from core_engine import user_store
 from core_engine.agent_store import create_agent, delete_agent, get_agent, list_agents, update_agent
 from core_engine.config import get_settings
-from core_engine import user_store
+from core_engine.id_generator import generate_id
+from core_engine.module_facade import ModuleFacade
 
 router = APIRouter(tags=["agents"])
+
+
+@router.get(
+    "/agents/choices",
+    summary="List Selectable Agents",
+    description="Return playable junior agent cards with visible attributes and hidden-trait hint.",
+)
+def list_selectable_agent_choices_route() -> dict:
+    settings = get_settings()
+    try:
+        facade = ModuleFacade.from_name(settings.active_game_module)
+        chooser = getattr(facade.agents, "list_selectable_agents", None)
+        if not callable(chooser):
+            raise RuntimeError("Active module does not expose selectable agent cards.")
+        return {
+            "module_name": settings.active_game_module,
+            "hint": "Each worker also has hidden tendencies you will discover through use.",
+            "agents": chooser(),
+        }
+    except ValueError as exc:
+        raise HTTPException(status_code=400, detail=str(exc)) from exc
+    except Exception as exc:
+        raise HTTPException(status_code=500, detail=str(exc)) from exc
 
 
 @router.get(
@@ -160,6 +185,64 @@ def list_user_agent_bindings_route(
         raise
     except ValueError as exc:
         raise HTTPException(status_code=400, detail=str(exc)) from exc
+    except Exception as exc:
+        raise HTTPException(status_code=500, detail=str(exc)) from exc
+
+
+@router.post(
+    "/agents/users/{user_id}/lineup",
+    summary="Set User Agent Lineup",
+    description="Set exactly two active playable agents for the user.",
+)
+def set_user_agent_lineup_route(
+        request: AgentLineupRequest,
+        user_id: str = Path(..., min_length=1, description="User ID"),
+) -> dict:
+    settings = get_settings()
+    try:
+        facade = ModuleFacade.from_name(settings.active_game_module)
+        chooser = getattr(facade.agents, "list_selectable_agents", None)
+        if not callable(chooser):
+            raise RuntimeError("Active module does not expose selectable agent cards.")
+        cards = chooser()
+        card_map = {
+            str(item.get("agent_name", "")).strip().lower(): item
+            for item in cards
+            if isinstance(item, dict) and str(item.get("agent_name", "")).strip()
+        }
+        names = [str(item).strip().lower() for item in request.agent_names]
+        if len(names) != 2 or len(set(names)) != 2:
+            raise ValueError("Exactly two distinct agents must be selected.")
+        unknown = [name for name in names if name not in card_map]
+        if unknown:
+            raise ValueError(f"Unknown selectable agents: {unknown}")
+        lineup_payload = []
+        for name in names:
+            lineup_payload.append(
+                {
+                    "agent_id": generate_id("uagt"),
+                    "preset": name,
+                    "level": "junior",
+                    "status": "active",
+                    "affinity": 0.5,
+                }
+            )
+        stored = user_store.set_user_agent_lineup(
+            user_id=user_id,
+            database_url=settings.database_url,
+            module_name=settings.active_game_module,
+            lineup_agents=lineup_payload,
+        )
+        return {
+            "module_name": settings.active_game_module,
+            "user_id": user_id,
+            "lineup": stored,
+        }
+    except ValueError as exc:
+        msg = str(exc)
+        if "not found" in msg.lower():
+            raise HTTPException(status_code=404, detail=msg) from exc
+        raise HTTPException(status_code=400, detail=msg) from exc
     except Exception as exc:
         raise HTTPException(status_code=500, detail=str(exc)) from exc
 

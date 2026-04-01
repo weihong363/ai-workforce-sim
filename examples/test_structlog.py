@@ -35,7 +35,7 @@ def demo_structured_logging():
     
     logger.info(
         "Agent execution",
-        agent_name="market_analyst",
+        agent_name="operator",
         tokens_used=256,
         cost_usd=0.00128,
         cache_hit=False

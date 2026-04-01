@@ -122,10 +122,31 @@ def _extract_agent_outputs(result: dict) -> list[dict]:
             {
                 "step_index": int(step.get("step_index", idx)),
                 "agent_name": str(step.get("agent_name", f"agent_{idx + 1}")),
-                "output": str(step.get("output", "")),
+                "output": str(step.get("raw_output", step.get("output", ""))),
             }
         )
     return outputs
+
+
+def _extract_cost_breakdown(result: dict, charged_cost: float) -> dict:
+    workflow = result.get("workflow_results", []) if isinstance(result, dict) else []
+    if not isinstance(workflow, list):
+        workflow = []
+    fixed_cost = round(
+        sum(float(step.get("fixed_agent_cost", 0.0) or 0.0) for step in workflow if isinstance(step, dict)),
+        8,
+    )
+    step_total = round(
+        sum(float(step.get("cost", 0.0) or 0.0) for step in workflow if isinstance(step, dict)),
+        8,
+    )
+    model_cost = round(max(0.0, step_total - fixed_cost), 8)
+    total_cost = round(float(charged_cost or step_total), 8)
+    return {
+        "model_cost": model_cost,
+        "agent_cost": fixed_cost,
+        "total_cost": total_cost,
+    }
 
 
 def _build_near_miss_hint(friendly_issues: list[str]) -> str:
@@ -197,6 +218,9 @@ def build_run_task_user_response(result: dict) -> dict:
     agent_outputs = _extract_agent_outputs(result)
     final_agent_output = agent_outputs[-1]["output"] if agent_outputs else ""
 
+    charged_cost = float(player_result.get("cost_spent", result.get("total_cost", 0.0)) or 0.0)
+    cost_breakdown = _extract_cost_breakdown(result, charged_cost=charged_cost)
+
     return {
         "success": success,
         "headline": headline,
@@ -204,7 +228,8 @@ def build_run_task_user_response(result: dict) -> dict:
         "score": current_score,
         "current_score": current_score,
         "reward": float(player_result.get("reward_gained", 0.0) or 0.0),
-        "cost": float(player_result.get("cost_spent", result.get("total_cost", 0.0)) or 0.0),
+        "cost": charged_cost,
+        "cost_breakdown": cost_breakdown,
         "previous_score": previous_score,
         "score_delta": score_delta,
         "delta": score_delta,

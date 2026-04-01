@@ -42,7 +42,7 @@ class MockProvider(BaseProvider):
         lower = task_input.lower()
         constraints = [k for k in ("target customer", "pricing", "risk", "timeline", "budget") if k in lower]
         size_hint = self._model_size_hint(model)
-        richer = size_hint >= 20 or "senior" in lower or "strategy_writer" in lower
+        richer = size_hint >= 20 or "senior" in lower or "maverick" in lower
 
         if richer:
             lines = [

@@ -15,8 +15,8 @@ from pathlib import Path
 from urllib.parse import parse_qsl, urlencode, urlparse, urlunparse
 
 import psycopg2
-from psycopg2.extras import RealDictCursor
 from dotenv import load_dotenv
+from psycopg2.extras import RealDictCursor
 
 # Add project root to import path.
 sys.path.insert(0, str(Path(__file__).parent.parent))
@@ -102,7 +102,7 @@ def _seed_demo_data(database_url: str) -> None:
                 "step_001_1",
                 "test_run_001",
                 0,
-                "market_analyst",
+                "operator",
                 "Analyze launch potential.",
                 "Strong demand in tier-1 cities.",
                 "mock",

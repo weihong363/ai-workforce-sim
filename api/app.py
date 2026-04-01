@@ -1,7 +1,7 @@
 """FastAPI application wiring and lifecycle setup."""
 
-from contextlib import asynccontextmanager
 import os
+from contextlib import asynccontextmanager
 from pathlib import Path
 from typing import AsyncGenerator
 from urllib.parse import urlparse, urlunparse
@@ -11,8 +11,8 @@ from dotenv import load_dotenv
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 
-from api.routes.debug import router as debug_router
 from api.routes.agents import router as agents_router
+from api.routes.debug import router as debug_router
 from api.routes.game import router as game_router
 from api.routes.pages import router as pages_router
 from api.routes.runs import router as runs_router
@@ -22,7 +22,6 @@ from api.routes.users import router as users_router
 from core_engine.bootstrap import validate_runtime_storage
 from core_engine.config import get_settings
 from core_engine.logging_utils import setup_logging
-from core_engine.module_facade import ModuleFacade  # compatibility for tests monkeypatching app.ModuleFacade
 
 # Load environment variables from .env file
 env_path = Path(__file__).parent.parent / ".env"
@@ -97,7 +96,12 @@ async def lifespan(app: FastAPI) -> AsyncGenerator[None, None]:
     from core_engine.cache import init_cache
 
     try:
-        init_cache(settings.redis_url)
+        init_cache(
+            settings.redis_url,
+            agent_cache_ttl_seconds=settings.agent_cache_ttl_seconds,
+            evaluation_cache_ttl_seconds=settings.evaluation_cache_ttl_seconds,
+            temp_result_ttl_seconds=settings.temp_result_ttl_seconds,
+        )
         app.state.cache_initialized = True
         logger.info("[API] Redis cache initialized successfully")
     except Exception as exc:

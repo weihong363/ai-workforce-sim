@@ -29,6 +29,7 @@ def run_task_route(request: RunTaskRequest) -> dict:
             module_name=selected_module,
             user_id=request.user_id,
             instructions=request.instructions,
+            selected_agent_name=request.agent_name,
         )
         return build_run_task_user_response(result)
     except (ValueError, ModuleLoadError) as exc:
@@ -42,6 +43,7 @@ def run_task_route(request: RunTaskRequest) -> dict:
             "parsing_failed",
             "provider_call_failed",
             "timeout",
+            "invalid_agent_selection",
         }:
             return build_failed_run_task_response(exc)
         raise HTTPException(status_code=500, detail=exc.to_dict()) from exc

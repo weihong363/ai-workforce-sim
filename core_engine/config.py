@@ -23,6 +23,9 @@ class Settings:
     provider_retry_attempts: int
     enable_agent_cache: bool
     enable_evaluation_cache: bool
+    agent_cache_ttl_seconds: int
+    evaluation_cache_ttl_seconds: int
+    temp_result_ttl_seconds: int
     llm_cost_per_1k_tokens_usd: float
     task_result_cache_ttl_seconds: int
     task_cache_delay_min_ms: int
@@ -244,6 +247,9 @@ def get_settings(force_reload: bool = False) -> Settings:
         provider_retry_attempts=_to_int(os.getenv("PROVIDER_RETRY_ATTEMPTS"), 2),
         enable_agent_cache=_to_bool(os.getenv("ENABLE_AGENT_CACHE"), default=True),
         enable_evaluation_cache=_to_bool(os.getenv("ENABLE_EVALUATION_CACHE"), default=True),
+        agent_cache_ttl_seconds=_to_int(os.getenv("AGENT_CACHE_TTL_SECONDS"), 3600),
+        evaluation_cache_ttl_seconds=_to_int(os.getenv("EVALUATION_CACHE_TTL_SECONDS"), 3600),
+        temp_result_ttl_seconds=_to_int(os.getenv("TEMP_RESULT_TTL_SECONDS"), 60),
         llm_cost_per_1k_tokens_usd=_to_float(os.getenv("LLM_COST_PER_1K_TOKENS_USD"), 0.0),
         task_result_cache_ttl_seconds=_to_int(os.getenv("TASK_RESULT_CACHE_TTL_SECONDS"), 600),
         task_cache_delay_min_ms=_to_int(os.getenv("TASK_CACHE_DELAY_MIN_MS"), 60),

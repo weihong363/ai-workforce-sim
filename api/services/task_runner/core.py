@@ -3,19 +3,18 @@
 import json
 import random
 import re
-import sys
 import time
 from copy import deepcopy
 from typing import Dict, Optional, List
-from statistics import mean, pstdev
 
 import structlog
+
 from core_engine.agent_controller import AgentController
 from core_engine.asset_serializer import serialize_asset
 from core_engine.config import get_settings
 from core_engine.errors import ExecutionError
 from core_engine.evaluation_adapter import evaluate_workflow
-from core_engine.logging_utils import log_event, setup_logging
+from core_engine.logging_utils import log_event
 from core_engine.module_facade import ModuleFacade
 from core_engine.module_loader import resolve_module_name
 from core_engine.result_store import (
@@ -24,7 +23,7 @@ from core_engine.result_store import (
     persist_workflow_steps,
     update_run_status,
 )
-from core_engine.tuning import get_effective_tuning, get_tuning_overrides, set_tuning_overrides
+from core_engine.tuning import get_effective_tuning
 from core_engine.workflow_runner import run_sequential_workflow
 
 RUN_RUNTIME_STATE: Dict[str, Dict[str, object]] = {}
@@ -208,6 +207,19 @@ def _merge_agent_profiles(
     return merged
 
 
+def _fixed_agent_cost_total(
+        workflow_steps: List[str],
+        agent_profiles: Dict[str, Dict[str, object]],
+) -> float:
+    total = 0.0
+    for name in workflow_steps or []:
+        profile = agent_profiles.get(str(name), {})
+        if not isinstance(profile, dict):
+            continue
+        total += float(profile.get("fixed_run_cost", 0.0) or 0.0)
+    return round(total, 8)
+
+
 def _build_comparison_fields(result: Dict[str, object], cost_per_1k_tokens: float) -> Dict[str, object]:
     workflow_results = result.get("workflow_results", [])
     final_output = workflow_results[-1]["output"] if workflow_results else ""
@@ -360,6 +372,7 @@ def _task_cache_key(
         cost_rate: float,
         model_routing_snapshot: Optional[Dict[str, str]] = None,
         agent_overrides: Optional[Dict[str, Dict[str, object]]] = None,
+        selected_agent_name: Optional[str] = None,
         tuning_snapshot: Optional[Dict[str, object]] = None,
 ) -> str:
     payload = {
@@ -372,6 +385,7 @@ def _task_cache_key(
         "cost_rate": cost_rate,
         "model_routing": model_routing_snapshot or {},
         "agent_overrides": agent_overrides or {},
+        "selected_agent_name": str(selected_agent_name or ""),
         "tuning": tuning_snapshot or {},
     }
     return json.dumps(payload, sort_keys=True, ensure_ascii=True)
@@ -384,6 +398,7 @@ def run_task(
         run_id_override: Optional[str] = None,
         user_id: Optional[str] = None,
         instructions: Optional[str] = None,
+        selected_agent_name: Optional[str] = None,
         model_overrides: Optional[Dict[str, str]] = None,
         task_definition_override: Optional[Dict[str, object]] = None,
 ) -> Dict[str, object]:
@@ -410,7 +425,12 @@ def run_task(
     # Initialize Redis cache if not already initialized
     from core_engine.cache import GLOBAL_CACHE, init_cache
     if GLOBAL_CACHE is None:
-        init_cache(settings.redis_url)
+        init_cache(
+            settings.redis_url,
+            agent_cache_ttl_seconds=settings.agent_cache_ttl_seconds,
+            evaluation_cache_ttl_seconds=settings.evaluation_cache_ttl_seconds,
+            temp_result_ttl_seconds=settings.temp_result_ttl_seconds,
+        )
         logger.info("[run_task] Initialized Redis cache", redis_url=settings.redis_url)
     from core_engine.cache import get_cache
     cache = get_cache()
@@ -460,14 +480,26 @@ def run_task(
             task_config.get("estimated_cost", task_config.get("cost_estimate", 0.0)) or 0.0
         )
         task_config["is_tutorial"] = bool(task_config.get("tutorial_only", task_config.get("is_tutorial", False)))
-        workflow_steps = task_config["workflow"]
+        configured_workflow = task_config.get("workflow")
+        if isinstance(configured_workflow, list) and configured_workflow:
+            workflow_steps = [str(name) for name in configured_workflow if str(name).strip()]
+        else:
+            default_agent = str(selected_agent_name or "operator").strip() or "operator"
+            workflow_steps = [default_agent]
         task_input = str(task_config["input"])
         instruction_text = str(instructions or "").strip()
         if instruction_text:
             task_input = f"{task_input}\nPlayer Instructions:\n{instruction_text}"
         raw_task_budget = int(task_config.get("max_total_tokens", 0) or 0)
         max_total_tokens = int(raw_task_budget * settings.task_token_budget_multiplier)
-        agent_profiles = _merge_agent_profiles(getattr(facade.agents, "AGENTS", {}), agent_overrides)
+        agent_profiles = _merge_agent_profiles(getattr(facade.agents, "AGENTS", {}), None)
+        build_default_overrides = getattr(facade.agents, "build_default_workflow_overrides", None)
+        if callable(build_default_overrides):
+            agent_profiles = _merge_agent_profiles(
+                agent_profiles,
+                build_default_overrides(list(workflow_steps)),
+            )
+        agent_profiles = _merge_agent_profiles(agent_profiles, agent_overrides)
         task_config["_agent_task_fit_score"] = _estimate_agent_task_fit(task_config, list(workflow_steps),
                                                                         agent_profiles)
         progression_context: Optional[Dict[str, object]] = None
@@ -475,6 +507,33 @@ def run_task(
 
         if user_id:
             progress = facade.progression
+            user_snapshot = progress.get_user(user_id)
+            owned_agents = list(user_snapshot.get("owned_agents", []) or [])
+
+            selected_preset = str(selected_agent_name or "").strip().lower()
+            if selected_preset:
+                selected_bindings = [
+                    item for item in owned_agents
+                    if isinstance(item, dict) and str(item.get("preset", "")).strip().lower() == selected_preset
+                ]
+                if not selected_bindings:
+                    raise ExecutionError(
+                        "invalid_agent_selection",
+                        f"Selected agent '{selected_preset}' is not bound to user.",
+                        {"user_id": user_id, "task_id": task_id, "agent_name": selected_preset},
+                    )
+                owned_agents = selected_bindings
+
+            build_user_overrides = getattr(facade.agents, "build_user_workflow_overrides", None)
+            if callable(build_user_overrides):
+                user_selection_overrides = build_user_overrides(
+                    owned_agents,
+                    list(workflow_steps),
+                )
+                agent_profiles = _merge_agent_profiles(agent_profiles, user_selection_overrides)
+                task_config["_agent_task_fit_score"] = _estimate_agent_task_fit(
+                    task_config, list(workflow_steps), agent_profiles
+                )
 
             task_allowed, block_reason = progress.tutorial_allows_task(
                 user_id=user_id,
@@ -488,7 +547,9 @@ def run_task(
                     {"user_id": user_id, "task_id": task_id},
                 )
 
-            cost_estimate = progress.estimate_task_cost(task_config)
+            model_cost_estimate = progress.estimate_task_cost(task_config)
+            fixed_agent_cost_estimate = _fixed_agent_cost_total(list(workflow_steps), agent_profiles)
+            cost_estimate = round(float(model_cost_estimate) + float(fixed_agent_cost_estimate), 8)
             try:
                 charge_info = progress.charge_task_cost(user_id=user_id, task_id=task_id, cost=cost_estimate)
             except ValueError as exc:
@@ -509,6 +570,8 @@ def run_task(
                 "user_id": user_id,
                 "clarity_score": clarity_score,
                 "cost_spent": float(charge_info["cost_spent"]),
+                "estimated_model_cost": float(model_cost_estimate),
+                "estimated_fixed_agent_cost": float(fixed_agent_cost_estimate),
                 "wallet_before": float(charge_info.get("wallet_before", 0.0) or 0.0),
                 "all_tasks": all_tasks,
             }
@@ -522,8 +585,16 @@ def run_task(
         for profile in agent_profiles.values():
             if isinstance(profile, dict):
                 profile["clarity_score"] = float(clarity_score)
+                level_key = str(profile.get("level", "mid")).lower()
+                level_delay_factor = 1.0
+                if level_key == "junior":
+                    level_delay_factor = 1.2
+                elif level_key == "senior":
+                    level_delay_factor = 0.55
                 profile["artificial_delay_ms"] = int(
-                    float(profile.get("artificial_delay_ms", 0) or 0) * float(
+                    float(profile.get("artificial_delay_ms", 0) or 0)
+                    * level_delay_factor
+                    * float(
                         tuning.get("artificial_delay_multiplier", 1.0))
                 )
                 profile["cost_weight"] = float(profile.get("cost_weight", 1.0) or 1.0) * float(
@@ -540,6 +611,7 @@ def run_task(
             cost_rate=settings.llm_cost_per_1k_tokens_usd,
             model_routing_snapshot=dict(effective_settings.model_for_purpose),
             agent_overrides=agent_overrides,
+            selected_agent_name=selected_agent_name,
             tuning_snapshot=tuning,
         )
         cached_exists = cache.get_task_result(request_cache_key) is not None
@@ -726,6 +798,10 @@ def run_task(
             if "agent_level" not in step:
                 profile = agent_profiles.get(str(step.get("agent_name", "")), {})
                 step["agent_level"] = str(profile.get("level", "mid"))
+            profile = agent_profiles.get(str(step.get("agent_name", "")), {})
+            fixed_cost = float(profile.get("fixed_run_cost", 0.0) or 0.0) if isinstance(profile, dict) else 0.0
+            step["fixed_agent_cost"] = round(fixed_cost, 8)
+            step["cost"] = round(float(step.get("cost", 0.0) or 0.0) + fixed_cost, 8)
 
         total_cost = round(sum(float(step.get("cost", 0.0)) for step in workflow_results), 8)
         total_tokens = int(

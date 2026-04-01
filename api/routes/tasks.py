@@ -3,6 +3,7 @@
 from fastapi import APIRouter, HTTPException, Path, Query
 
 from api.schemas import TaskManageRequest, TaskUpdateRequest
+from api.services.task_zh_temp import build_zh_overlay_by_origin
 from core_engine.config import get_settings
 from core_engine.module_facade import ModuleFacade
 from core_engine.module_loader import ModuleLoadError
@@ -26,6 +27,39 @@ def _task_to_public(facade: ModuleFacade, task_id: str, task_config: dict) -> di
         "success_threshold": float(task_config.get("success_threshold", 72.0) or 72.0),
         "tutorial_only": bool(task_config.get("tutorial_only", task_config.get("is_tutorial", False))),
     }
+
+
+def _overlay_public_text(base_public: dict, zh_task_config: dict) -> dict:
+    merged = dict(base_public or {})
+    if not isinstance(zh_task_config, dict):
+        return merged
+    title = zh_task_config.get("title")
+    description = zh_task_config.get("description", zh_task_config.get("input"))
+    constraints = zh_task_config.get("required_constraints", zh_task_config.get("constraints"))
+    if isinstance(title, str) and title.strip():
+        merged["title"] = title
+    if isinstance(description, str) and description.strip():
+        merged["description"] = description
+    if isinstance(constraints, list):
+        merged["required_constraints"] = [str(item) for item in constraints if str(item).strip()]
+    merged["lang"] = "zh-CN"
+    merged["origin_task_id"] = str(base_public.get("task_id", ""))
+    merged["zh_task_id"] = str(zh_task_config.get("task_id", ""))
+    return merged
+
+
+def _temp_zh_unlock_condition(text: str) -> str:
+    value = str(text or "").strip()
+    if not value:
+        return value
+    lowered = value.lower()
+    if "complete tutorial tasks" in lowered:
+        return "先完成教程任务"
+    if "complete 5 tasks" in lowered:
+        return "完成 5 个任务或钱包达到 80"
+    if "complete 10 tasks" in lowered:
+        return "完成 10 个任务或钱包达到 150"
+    return value
 
 
 @router.get(
@@ -64,7 +98,7 @@ def get_tasks_route(user_id: str = Query(..., min_length=1, description="Player 
             if not task_id:
                 continue
             payload = _task_to_public(facade, task_id, item)
-            payload["unlock_condition"] = str(item.get("unlock_condition", ""))
+            payload["unlock_condition"] = _temp_zh_unlock_condition(str(item.get("unlock_condition", "")))
             locked_public.append(payload)
         tutorial_completed = not bool(board.get("locked", False))
         return {
@@ -76,6 +110,75 @@ def get_tasks_route(user_id: str = Query(..., min_length=1, description="Player 
             "available": available_public,
             "locked": locked_public,
             # backward-compatible alias
+            "tasks": available_public,
+        }
+    except ModuleLoadError as exc:
+        raise HTTPException(status_code=400, detail=str(exc)) from exc
+    except ValueError as exc:
+        raise HTTPException(status_code=400, detail=str(exc)) from exc
+    except Exception as exc:
+        raise HTTPException(status_code=500, detail=str(exc)) from exc
+
+
+@router.get(
+    "/tasks-temp-zh",
+    summary="Get Task Board (Temporary Chinese Copy)",
+    description="Temporary endpoint: return task board using Chinese DB copies (for MVP frontend toggle).",
+)
+def get_tasks_temp_zh_route(
+        user_id: str = Query(..., min_length=1, description="Player id for task visibility"),
+) -> dict:
+    settings = get_settings()
+    try:
+        facade = ModuleFacade.from_name(settings.active_game_module)
+        task_definitions = facade.list_tasks() or {}
+        progression = getattr(facade, "progression", None)
+        if progression is None or not callable(getattr(progression, "list_task_board", None)):
+            raise RuntimeError("Progression component is unavailable.")
+        zh_overlay = build_zh_overlay_by_origin(
+            database_url=settings.database_url,
+            module_name=settings.active_game_module,
+        )
+        board_raw = progression.list_task_board(user_id=user_id, task_definitions=task_definitions)
+        board = board_raw if isinstance(board_raw, dict) else {}
+        available_raw = board.get("available_tasks", board.get("tasks", [])) if isinstance(board, dict) else []
+        locked_raw = board.get("locked_tasks", []) if isinstance(board, dict) else []
+
+        available_public: list[dict] = []
+        for item in available_raw:
+            if not isinstance(item, dict):
+                continue
+            task_id = str(item.get("task_id", "")).strip()
+            if not task_id:
+                continue
+            payload = _task_to_public(facade, task_id, item)
+            payload = _overlay_public_text(payload, zh_overlay.get(task_id, {}))
+            if "recommended" in item:
+                payload["recommended"] = bool(item.get("recommended", False))
+            available_public.append(payload)
+
+        locked_public: list[dict] = []
+        for item in locked_raw:
+            if not isinstance(item, dict):
+                continue
+            task_id = str(item.get("task_id", "")).strip()
+            if not task_id:
+                continue
+            payload = _task_to_public(facade, task_id, item)
+            payload = _overlay_public_text(payload, zh_overlay.get(task_id, {}))
+            payload["unlock_condition"] = str(item.get("unlock_condition", ""))
+            locked_public.append(payload)
+
+        tutorial_completed = not bool(board.get("locked", False))
+        return {
+            "user_id": user_id,
+            "module_name": settings.active_game_module,
+            "lang": "zh-CN",
+            "tutorial_completed": tutorial_completed,
+            "tasks_completed_count": int(board.get("tasks_completed_count", 0) or 0),
+            "wallet_balance": float(board.get("wallet_balance", 0.0) or 0.0),
+            "available": available_public,
+            "locked": locked_public,
             "tasks": available_public,
         }
     except ModuleLoadError as exc:

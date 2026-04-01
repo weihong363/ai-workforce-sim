@@ -10,6 +10,10 @@ class RunTaskRequest(BaseModel):
     task_id: str = Field(..., description="Task ID to execute")
     user_id: str = Field(..., min_length=1, description="Player id for progression flow (required)")
     instructions: Optional[str] = Field(None, description="Player instruction text for this task")
+    agent_name: Optional[str] = Field(
+        None,
+        description="Selected bound agent preset for this run (must belong to the user lineup)",
+    )
 
 
 class RunTaskResponse(BaseModel):
@@ -252,7 +256,7 @@ class TaskConfigInput(BaseModel):
     success_threshold: float = Field(72.0, ge=0, le=100, description="Success threshold for effective score")
     tutorial_only: bool = Field(False, description="Whether this is a tutorial-only task")
     workflow: List[str] = Field(
-        default_factory=lambda: ["market_analyst", "strategy_writer"],
+        default_factory=lambda: ["operator", "maverick"],
         description="Ordered agent workflow names",
     )
     max_total_tokens: int = Field(320, ge=1, description="Per-task token budget")
@@ -308,3 +312,11 @@ class AgentUserBindRequest(BaseModel):
 
     agent_name: str = Field(..., min_length=1, description="Catalog agent name to bind")
     status: str = Field("active", description="User-agent status, e.g. active")
+
+
+class AgentLineupRequest(BaseModel):
+    """Set active playable lineup for a user."""
+
+    model_config = ConfigDict(extra="forbid")
+
+    agent_names: List[str] = Field(..., min_length=2, max_length=2, description="Exactly two selected agent names")
