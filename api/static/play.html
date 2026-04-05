@@ -15,10 +15,52 @@
 			--ok: #15803d;
 			--warn: #b45309;
 			--err: #b91c1c;
+			--env-image: url('/play-assets/static/background.png');
 		}
-		body { margin: 0; font-family: "Avenir Next", "Segoe UI", sans-serif; background: radial-gradient(circle at top right, #eef7ff 0%, #f4f6fb 35%, #f4f6fb 100%); color: var(--text); }
+		body { margin: 0; font-family: "Avenir Next", "Segoe UI", sans-serif; background: radial-gradient(circle at top right, #eef7ff 0%, #f4f6fb 35%, #f4f6fb 100%); color: var(--text); position: relative; }
+		body::before {
+			content: "";
+			position: fixed;
+			inset: 0;
+			background-image: var(--env-image);
+			background-position: center bottom;
+			background-repeat: no-repeat;
+			background-size: cover;
+			opacity: 0.26;
+			pointer-events: none;
+			z-index: 0;
+		}
+		body::after {
+			content: "";
+			position: fixed;
+			inset: 0;
+			background: linear-gradient(180deg, rgba(244,246,251,0.22) 0%, rgba(244,246,251,0.34) 45%, rgba(244,246,251,0.44) 100%);
+			pointer-events: none;
+			z-index: 0;
+		}
+		.wrap, .card { position: relative; z-index: 1; }
 		.wrap { min-height: 100vh; display: grid; place-items: center; padding: 20px; }
-		.card { width: min(1080px, 96vw); background: var(--card); border: 1px solid var(--line); border-radius: 16px; padding: 24px; box-shadow: 0 12px 28px rgba(20,35,60,.10); }
+		.card {
+			width: min(1080px, 96vw);
+			background: rgba(255,255,255,.93);
+			border: 1px solid var(--line);
+			border-radius: 16px;
+			padding: 24px;
+			box-shadow: 0 12px 28px rgba(20,35,60,.10);
+			overflow: hidden;
+		}
+		.card::before {
+			content: "";
+			position: absolute;
+			inset: 0;
+			background-image: var(--env-image);
+			background-size: cover;
+			background-position: center;
+			opacity: 0.06;
+			pointer-events: none;
+			z-index: 0;
+		}
+		.card > * { position: relative; z-index: 1; }
 		.hidden { display: none; }
 		h1, h2, h3 { margin: 0 0 8px; }
 		h1 { font-size: 32px; }
@@ -42,16 +84,74 @@
 		.pill.warn { background: #fff7ed; color: var(--warn); }
 		.pill.err { background: #fef2f2; color: var(--err); }
 		.agent-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 12px; }
-		.agent-card { border: 1px solid var(--line); border-radius: 12px; padding: 12px; background: #fff; }
+		.agent-card { border: 1px solid var(--line); border-radius: 12px; padding: 10px; background: #fff; cursor: pointer; transition: transform .12s ease, box-shadow .12s ease, border-color .12s ease; }
+		.agent-card:hover { transform: translateY(-1px); border-color: #89c7c1; }
 		.agent-card.operator { background: linear-gradient(180deg, #f4fbff 0%, #ffffff 70%); }
 		.agent-card.maverick { background: linear-gradient(180deg, #fff7ed 0%, #ffffff 70%); }
 		.agent-card.slacker { background: linear-gradient(180deg, #f9fafb 0%, #ffffff 70%); }
-		.agent-card.selected { border-color: #0f766e; box-shadow: 0 0 0 2px rgba(15,118,110,.14); }
+		.agent-card.selected {
+			border: 2px solid #0f766e;
+			box-shadow: 0 0 0 3px rgba(15,118,110,.22), 0 10px 24px rgba(15,118,110,.18);
+			transform: translateY(-1px);
+			background: linear-gradient(180deg, #ecfdfb 0%, #ffffff 72%);
+		}
+		.agent-avatar { width: 100%; max-height: 150px; aspect-ratio: 4 / 3; border-radius: 10px; object-fit: contain; display: block; margin-bottom: 8px; border: 1px solid #dbe2ea; background: #f8fafc; }
+		.agent-card.debut-intro .agent-avatar,
+		.agent-card.debut-select .agent-avatar { will-change: transform, filter; }
+		.agent-card.operator.debut-intro .agent-avatar { animation: operatorDebutIntro .68s ease-out 1 both; }
+		.agent-card.maverick.debut-intro .agent-avatar { animation: maverickDebutIntro .72s cubic-bezier(.22,.61,.36,1) 1 both; }
+		.agent-card.slacker.debut-intro .agent-avatar { animation: slackerDebutIntro .76s ease-out 1 both; }
+		.agent-card.operator.debut-select .agent-avatar { animation: operatorDebutSelect .52s ease-out 1 both; }
+		.agent-card.maverick.debut-select .agent-avatar { animation: maverickDebutSelect .56s cubic-bezier(.2,.8,.2,1) 1 both; }
+		.agent-card.slacker.debut-select .agent-avatar { animation: slackerDebutSelect .6s ease-out 1 both; }
+		@keyframes operatorDebutIntro {
+			0% { transform: translateY(6px) scale(.92); filter: saturate(.9); }
+			55% { transform: translateY(-2px) scale(1.04); filter: saturate(1.08); }
+			100% { transform: translateY(0) scale(1); filter: saturate(1); }
+		}
+		@keyframes maverickDebutIntro {
+			0% { transform: rotate(-8deg) translateY(10px) scale(.9); filter: saturate(.85); }
+			45% { transform: rotate(6deg) translateY(-3px) scale(1.06); filter: saturate(1.15); }
+			100% { transform: rotate(0) translateY(0) scale(1); filter: saturate(1); }
+		}
+		@keyframes slackerDebutIntro {
+			0% { transform: translateX(-6px) rotate(-4deg) scale(.94); filter: contrast(.96); }
+			40% { transform: translateX(4px) rotate(3deg) scale(1.02); filter: contrast(1.04); }
+			100% { transform: translateX(0) rotate(0) scale(1); filter: contrast(1); }
+		}
+		@keyframes operatorDebutSelect {
+			0% { transform: scale(1); }
+			50% { transform: scale(1.08); }
+			100% { transform: scale(1); }
+		}
+		@keyframes maverickDebutSelect {
+			0% { transform: rotate(0) scale(1); }
+			35% { transform: rotate(-7deg) scale(1.06); }
+			70% { transform: rotate(5deg) scale(1.03); }
+			100% { transform: rotate(0) scale(1); }
+		}
+		@keyframes slackerDebutSelect {
+			0% { transform: translateX(0) scale(1); }
+			30% { transform: translateX(-5px) scale(1.03); }
+			60% { transform: translateX(4px) scale(1.02); }
+			100% { transform: translateX(0) scale(1); }
+		}
 		.agent-label { font-size: 12px; color: #0b3f3a; background: #dff8f5; border-radius: 999px; padding: 3px 8px; display: inline-block; margin-bottom: 6px; }
-		.radar-wrap { display: flex; justify-content: center; margin: 6px 0 10px; }
-		.radar-wrap svg { width: 170px; height: 170px; }
-		.agent-points { margin: 6px 0 0 16px; padding: 0; color: var(--muted); }
+		.agent-summary { margin: 0 0 2px; color: #44536a; font-size: 13px; min-height: 20px; }
+		.agent-hover-detail { margin-top: 8px; border-top: 1px dashed #d6deea; padding-top: 8px; font-size: 13px; color: #4f5f74; }
 		.cost-icons { letter-spacing: 2px; color: #0f766e; }
+		.agent-run-grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 10px; }
+		.agent-run-card { border: 1px solid var(--line); border-radius: 10px; padding: 8px; background: #fff; cursor: pointer; }
+		.agent-run-card.selected { border-color: #0f766e; box-shadow: 0 0 0 2px rgba(15,118,110,.14); }
+		.agent-run-card img { width: 100%; max-height: 108px; aspect-ratio: 16 / 10; object-fit: contain; border-radius: 8px; border: 1px solid #dbe2ea; background: #f8fafc; }
+		.agent-detail { margin-top: 8px; border: 1px solid #dbe2ea; border-radius: 10px; background: #fff; padding: 10px; }
+		.agent-detail summary { cursor: pointer; font-weight: 600; }
+		.using-line { display: flex; align-items: center; gap: 10px; margin-bottom: 8px; }
+		.using-line img { width: 40px; height: 40px; object-fit: contain; border-radius: 8px; border: 1px solid #dbe2ea; background: #fff; }
+		.stage-log { padding: 8px 10px; border: 1px solid #dbe2ea; border-radius: 8px; background: #fff; margin-top: 6px; }
+		.attribution { margin-top: 10px; border: 1px solid #dbe2ea; border-radius: 10px; background: #fff; padding: 10px; }
+		.attribution-head { display: flex; align-items: center; gap: 10px; margin-bottom: 6px; }
+		.attribution-head img { width: 42px; height: 42px; object-fit: contain; border-radius: 8px; border: 1px solid #dbe2ea; }
 		.task { border: 1px solid var(--line); border-radius: 12px; padding: 10px; margin-bottom: 8px; transition: all .15s ease; }
 		.task.reco { border-color: #22c55e; background: #f0fdf4; }
 		.task.selectable { cursor: pointer; }
@@ -72,7 +172,7 @@
 		.issues { margin: 8px 0 0 16px; padding: 0; }
 		.prompt-templates { display: flex; gap: 8px; flex-wrap: wrap; margin: 8px 0; }
 		.char-count { margin-left: auto; font-size: 12px; color: #64748b; }
-		@media (max-width: 980px) { .agent-grid { grid-template-columns: 1fr; } }
+		@media (max-width: 980px) { .agent-run-grid { grid-template-columns: 1fr; } }
 		@media (max-width: 768px) { .grid { grid-template-columns: 1fr; } .result-grid { grid-template-columns: 1fr; } h1 { font-size: 28px; } h2 { font-size: 24px; } }
 	</style>
 </head>
@@ -174,8 +274,13 @@
 					<select id="task-select"></select>
 					<p id="selected-task-meta" class="meta"></p>
 					<label class="label" for="agent-select">Executing Worker</label>
-					<select id="agent-select"></select>
+					<select id="agent-select" class="hidden"></select>
+					<div id="execution-agent-grid" class="agent-run-grid"></div>
 					<p id="selected-agent-meta" class="meta"></p>
+					<details id="execution-agent-details" class="agent-detail hidden">
+						<summary id="execution-agent-details-title">Details</summary>
+						<div id="execution-agent-details-body"></div>
+					</details>
 					<div class="prompt-templates">
 						<button id="tpl-clear" class="btn-ghost" type="button">Clear + Specific</button>
 						<button id="tpl-metrics" class="btn-ghost" type="button">Add Metrics</button>
@@ -200,6 +305,23 @@
 
 <script>
 	const apiBase = window.location.origin;
+	const AGENT_IMAGE_FILES = {
+		operator: 'static/worker-operator.png',
+		maverick: 'static/worker-maverick.png',
+		slacker: 'static/worker-slacker.png',
+	};
+	const AGENT_DEBUT_FILES = {
+		operator: 'debut/debut-worker-operator.gif',
+		maverick: 'debut/debut-worker-maverick.gif',
+		slacker: 'debut/debut-worker-slacker.gif',
+	};
+	const AGENT_ACTION_FILES = {
+		operator: ['action/action0-worker-operator.gif', 'action/action1-worker-operator.gif'],
+		maverick: ['action/action0-worker-maverick.gif', 'action/action1-worker-maverick.gif'],
+		slacker: ['action/action0-worker-slacker.gif', 'action/action1-worker-slacker.gif'],
+	};
+	const DEBUT_HOLD_MS = 3500;
+	const IMAGE_CACHE_WARMED = new Set();
 	const state = {
 		userId: '',
 		username: '',
@@ -210,7 +332,78 @@
 		selectableAgents: [],
 		selectedAgentNames: [],
 		boundAgents: [],
+		debutUntilByAgent: {},
+		debutResetTimer: null,
 	};
+	const toAssetUrl = (assetPath) => `/play-assets/${String(assetPath || '')
+		.split('/')
+		.filter(Boolean)
+		.map((part) => encodeURIComponent(part))
+		.join('/')}`;
+	const agentImageUrl = (agentName) => toAssetUrl(
+		AGENT_IMAGE_FILES[String(agentName || '').toLowerCase()] || 'static/worker-operator.png'
+	);
+	const agentDebutUrl = (agentName) => toAssetUrl(
+		AGENT_DEBUT_FILES[String(agentName || '').toLowerCase()] || 'debut/debut-worker-operator.gif'
+	);
+	const agentActionUrls = (agentName) => {
+		const key = String(agentName || '').toLowerCase();
+		const files = AGENT_ACTION_FILES[key] || AGENT_ACTION_FILES.operator;
+		return (files || []).map((file) => toAssetUrl(file));
+	};
+
+	function randomInt(minInclusive, maxInclusive) {
+		const min = Number(minInclusive);
+		const max = Number(maxInclusive);
+		if (!Number.isFinite(min) || !Number.isFinite(max)) return 0;
+		return Math.floor(Math.random() * (max - min + 1)) + min;
+	}
+
+	function warmImageCache(url) {
+		const normalized = String(url || '').trim();
+		if (!normalized || IMAGE_CACHE_WARMED.has(normalized)) return;
+		IMAGE_CACHE_WARMED.add(normalized);
+		const img = new Image();
+		img.decoding = 'async';
+		img.src = normalized;
+	}
+
+	function warmImageCacheBatch(urls) {
+		(urls || []).forEach((item) => warmImageCache(item));
+	}
+
+	function scheduleDebutReset(delayMs) {
+		if (!Number.isFinite(delayMs) || delayMs <= 0) return;
+		if (state.debutResetTimer) {
+			clearTimeout(state.debutResetTimer);
+			state.debutResetTimer = null;
+		}
+		state.debutResetTimer = window.setTimeout(() => {
+			state.debutResetTimer = null;
+			renderAgentCards();
+		}, delayMs);
+	}
+
+	function markDebut(agentNames, holdMs = DEBUT_HOLD_MS) {
+		const now = Date.now();
+		const next = { ...(state.debutUntilByAgent || {}) };
+		(agentNames || []).forEach((name) => {
+			const key = String(name || '').trim().toLowerCase();
+			if (!key) return;
+			next[key] = now + holdMs;
+		});
+		state.debutUntilByAgent = next;
+	}
+
+	function nextDebutDelay() {
+		const now = Date.now();
+		const values = Object.values(state.debutUntilByAgent || {});
+		const positive = values
+			.map((value) => Number(value) - now)
+			.filter((delta) => Number.isFinite(delta) && delta > 0);
+		if (!positive.length) return null;
+		return Math.max(16, Math.min(...positive));
+	}
 	let currentLang = localStorage.getItem('play_lang') || 'en';
 	const I18N = {
 		en: {
@@ -307,6 +500,15 @@
 			tplClear: 'Clear + Specific',
 			tplMetrics: 'Add Metrics',
 			tplRisk: 'Add Risk',
+			workerDetails: 'Worker details',
+			usingLabel: 'Using',
+			stageInterpreting: '{agent} is interpreting...',
+			stageDrafting: '{agent} is drafting...',
+			stageEvaluating: '{agent} is checking quality...',
+			resultIssues: 'Result issues',
+			traitCause: "This happened because of the agent's traits",
+			traitStrengthUsed: 'Trait that helped',
+			traitRiskUsed: 'Trait that hurt',
 		},
 		zh: {
 			pageTitle: 'AI Workforce Sim - 游玩',
@@ -402,6 +604,15 @@
 			tplClear: '清晰具体',
 			tplMetrics: '补充指标',
 			tplRisk: '补充风险',
+			workerDetails: '员工详情',
+			usingLabel: '本次执行',
+			stageInterpreting: '{agent} 正在理解任务...',
+			stageDrafting: '{agent} 正在起草方案...',
+			stageEvaluating: '{agent} 正在检查质量...',
+			resultIssues: '结果问题',
+			traitCause: '这次结果与该员工特质有关',
+			traitStrengthUsed: '起作用的优势特质',
+			traitRiskUsed: '导致问题的短板特质',
 		},
 	};
 	const t = (k, vars = {}) => {
@@ -739,67 +950,124 @@
 		return `${lines.join('')}${labelEls.join('')}`;
 	}
 
+	function resolveSelectableAgentCard(agentName) {
+		const key = String(agentName || '').trim().toLowerCase();
+		return (state.selectableAgents || []).find((item) => String(item.agent_name || '').toLowerCase() === key) || null;
+	}
+
+	function traitAttribution(card, success) {
+		const strength = Array.isArray(card?.strengths) ? card.strengths[0] : '';
+		const weakness = Array.isArray(card?.weaknesses) ? card.weaknesses[0] : '';
+		return success
+			? `${t('traitCause')}. ${t('traitStrengthUsed')}: ${strength || 'n/a'}.`
+			: `${t('traitCause')}. ${t('traitRiskUsed')}: ${weakness || 'n/a'}.`;
+	}
+
 	function renderAgentCards() {
 		const root = byId('agent-cards');
 		const hint = byId('lineup-hint');
 		const confirmBtn = byId('confirm-lineup-btn');
+		const now = Date.now();
 		root.innerHTML = '';
 		const cards = Array.isArray(state.selectableAgents) ? state.selectableAgents : [];
 		cards.forEach(agent => {
-			const name = String(agent.agent_name || '');
-			const attrs = agent.visible_attributes || {};
+			const name = String(agent.agent_name || '').toLowerCase();
 			const selected = state.selectedAgentNames.includes(name);
+			const debutUntil = Number((state.debutUntilByAgent || {})[name] || 0);
+			const showDebutFrame = debutUntil > now;
+			const avatarUrl = showDebutFrame ? agentDebutUrl(name) : agentImageUrl(name);
 			const iconCount = Math.max(1, Number(agent.cost_icons || 1));
 			const icon = '●'.repeat(iconCount);
 			const card = document.createElement('div');
-			card.className = `agent-card ${name} ${selected ? 'selected' : ''}`;
+			const motionClass = showDebutFrame
+				? (selected ? 'debut-select' : 'debut-intro')
+				: '';
+			card.className = `agent-card ${name} ${selected ? 'selected' : ''} ${motionClass}`.trim();
 			card.innerHTML = `
+				<img class="agent-avatar" src="${avatarUrl}" alt="${agent.name || name}" loading="lazy" decoding="async"/>
 				<div class="agent-label">${agent.role_label || ''}</div>
 				<div><strong>${agent.name || name}</strong></div>
-				<div class="meta">${agent.description || ''}</div>
-				<div class="radar-wrap">
-					<svg viewBox="0 0 160 160" aria-label="agent-radar">
-						<circle cx="80" cy="80" r="56" fill="none" stroke="#dbe2ea" stroke-width="1"/>
-						<circle cx="80" cy="80" r="40" fill="none" stroke="#dbe2ea" stroke-width="1"/>
-						<circle cx="80" cy="80" r="24" fill="none" stroke="#dbe2ea" stroke-width="1"/>
-						${radarAxes()}
-						<polygon points="${radarPoints(attrs)}" fill="rgba(15,118,110,.25)" stroke="#0f766e" stroke-width="2"></polygon>
-					</svg>
-				</div>
-				<ul class="agent-points">
-					<li>${currentLang === 'zh' ? '优势' : 'Strength'}: ${Array.isArray(agent.strengths) ? agent.strengths[0] : ''}</li>
-					<li>${currentLang === 'zh' ? '短板' : 'Weakness'}: ${Array.isArray(agent.weaknesses) ? agent.weaknesses[0] : ''}</li>
-				</ul>
-				<p class="meta"><strong>${currentLang === 'zh' ? '体验特点' : 'Player feel'}:</strong> ${agent.player_feel || ''}</p>
+				<p class="agent-summary">${agent.description || ''}</p>
 				<p class="meta">${t('cost')}: <span class="cost-icons">${icon}</span> (${agent.cost_level || 'medium'})</p>
-				<div class="row"><button data-agent="${name}" class="btn-secondary">${selected ? (currentLang === 'zh' ? '已选择' : 'Selected') : (currentLang === 'zh' ? '选择' : 'Select')}</button></div>
+				<details class="agent-hover-detail">
+					<summary>${t('workerDetails')}</summary>
+					<div>${currentLang === 'zh' ? '优势' : 'Strength'}: ${Array.isArray(agent.strengths) ? agent.strengths[0] : ''}</div>
+					<div>${currentLang === 'zh' ? '短板' : 'Weakness'}: ${Array.isArray(agent.weaknesses) ? agent.weaknesses[0] : ''}</div>
+					<div>${agent.player_feel || ''}</div>
+				</details>
 			`;
-			root.appendChild(card);
-		});
-		root.querySelectorAll('button[data-agent]').forEach(btn => {
-			btn.addEventListener('click', () => {
-				const name = btn.getAttribute('data-agent');
-				if (!name) return;
+			card.addEventListener('click', (event) => {
+				if (event.target.closest('summary')) return;
 				if (state.selectedAgentNames.includes(name)) {
 					state.selectedAgentNames = state.selectedAgentNames.filter(x => x !== name);
-				} else {
-					if (state.selectedAgentNames.length >= 2) return;
+				} else if (state.selectedAgentNames.length < 2) {
 					state.selectedAgentNames = [...state.selectedAgentNames, name];
+					markDebut([name], DEBUT_HOLD_MS);
 				}
 				renderAgentCards();
 			});
+			root.appendChild(card);
 		});
 		hint.textContent = state.selectedAgentNames.length === 2
 			? `${currentLang === 'zh' ? '已选' : 'Selected'}: ${state.selectedAgentNames.join(' + ')}`
 			: t('selectTwoWorkers');
 		hint.className = `pill ${state.selectedAgentNames.length === 2 ? 'ok' : 'warn'}`;
 		confirmBtn.disabled = state.selectedAgentNames.length !== 2;
+		const delay = nextDebutDelay();
+		if (delay !== null) scheduleDebutReset(delay);
+	}
+
+	function renderExecutionAgentChoices(selectedPreset, boundAgents, cardsByName) {
+		const grid = byId('execution-agent-grid');
+		grid.innerHTML = '';
+		boundAgents.forEach((item) => {
+			const preset = String(item.preset || '');
+			const card = cardsByName.get(preset) || {};
+			const selected = preset === selectedPreset;
+			const iconCount = Math.max(1, Number(card.cost_icons || 1));
+			const icon = '●'.repeat(iconCount);
+			const node = document.createElement('div');
+			node.setAttribute('data-preset', preset);
+			node.className = `agent-run-card ${selected ? 'selected' : ''}`;
+			const staticImageUrl = agentImageUrl(preset);
+			node.innerHTML = `
+				<img src="${staticImageUrl}" data-static-src="${staticImageUrl}" alt="${card.name || preset}" loading="lazy" decoding="async"/>
+				<div class="agent-label" style="margin-top:6px;">${card.role_label || ''}</div>
+				<div><strong>${card.name || preset}</strong></div>
+				<div class="meta">${card.description || ''}</div>
+				<div class="meta">${t('cost')}: <span class="cost-icons">${icon}</span></div>
+			`;
+			node.addEventListener('click', () => {
+				byId('agent-select').value = preset;
+				renderBoundAgents();
+			});
+			grid.appendChild(node);
+		});
+	}
+
+	function setExecutionActionVisual(agentName, actionUrl) {
+		const preset = String(agentName || '').trim();
+		if (!preset) return;
+		const grid = byId('execution-agent-grid');
+		if (!grid) return;
+		const card = grid.querySelector(`.agent-run-card[data-preset="${preset}"]`);
+		if (!card) return;
+		const img = card.querySelector('img');
+		if (!img) return;
+		const staticSrc = img.getAttribute('data-static-src') || agentImageUrl(preset);
+		const nextSrc = actionUrl ? String(actionUrl) : staticSrc;
+		if (img.getAttribute('src') !== nextSrc) img.setAttribute('src', nextSrc);
 	}
 
 	async function loadAgentChoices() {
 		const payload = await jfetch('/agents/choices');
 		state.selectableAgents = Array.isArray(payload.agents) ? payload.agents : [];
-		state.selectedAgentNames = state.selectableAgents.slice(0, 2).map(x => String(x.agent_name || ''));
+		state.selectedAgentNames = state.selectableAgents.slice(0, 2).map(x => String(x.agent_name || '').toLowerCase());
+		markDebut(state.selectableAgents.map((x) => String(x.agent_name || '').toLowerCase()), DEBUT_HOLD_MS);
+		if (state.debutResetTimer) {
+			clearTimeout(state.debutResetTimer);
+			state.debutResetTimer = null;
+		}
 		renderAgentCards();
 	}
 
@@ -818,6 +1086,9 @@
 		const agentSelect = byId('agent-select');
 		const agentMeta = byId('selected-agent-meta');
 		const stateAgents = byId('state-agents');
+		const detailWrap = byId('execution-agent-details');
+		const detailTitle = byId('execution-agent-details-title');
+		const detailBody = byId('execution-agent-details-body');
 		const currentSelected = String(agentSelect.value || '');
 		const cardsByName = new Map(
 			(Array.isArray(state.selectableAgents) ? state.selectableAgents : [])
@@ -828,6 +1099,7 @@
 		if (!bound.length) {
 			stateAgents.textContent = t('noSelectedAgents');
 			agentMeta.textContent = t('noAvailableAgent');
+			detailWrap.classList.add('hidden');
 			return;
 		}
 		stateAgents.textContent = bound.map(x => String(x.preset || '')).join(', ');
@@ -844,7 +1116,15 @@
 			: String(bound[0].preset || '');
 		agentSelect.value = selected;
 		const card = cardsByName.get(selected) || {};
+		renderExecutionAgentChoices(selected, bound, cardsByName);
 		agentMeta.textContent = `${card.description || ''}`.trim() || (currentLang === 'zh' ? `本次执行员工：${selected}` : `Using ${selected} for this run.`);
+		detailTitle.textContent = `${t('workerDetails')}: ${card.name || selected}`;
+		detailBody.innerHTML = `
+			<div>${currentLang === 'zh' ? '优势' : 'Strength'}: ${Array.isArray(card.strengths) ? card.strengths[0] : 'n/a'}</div>
+			<div>${currentLang === 'zh' ? '短板' : 'Weakness'}: ${Array.isArray(card.weaknesses) ? card.weaknesses[0] : 'n/a'}</div>
+			<div>${currentLang === 'zh' ? '体验' : 'Feel'}: ${card.player_feel || 'n/a'}</div>
+		`;
+		detailWrap.classList.remove('hidden');
 	}
 
 	async function loadBoundAgents() {
@@ -853,9 +1133,19 @@
 		renderBoundAgents();
 	}
 
-	function startWorkingState() {
+	function startWorkingState(agentCard, selectedAgentName) {
 		const result = byId('result');
-		const stages = [t('workingInterpreting'), t('workingDrafting'), t('workingEvaluating')];
+		const runName = String(agentCard?.name || selectedAgentName || 'Agent');
+		const actionUrls = agentActionUrls(selectedAgentName);
+		let actionIndex = 0;
+		let actionUntilTs = 0;
+		let nextActionTs = Date.now() + randomInt(900, 1700);
+		let currentActionUrl = '';
+		const stages = [
+			t('stageInterpreting', { agent: runName }),
+			t('stageDrafting', { agent: runName }),
+			t('stageEvaluating', { agent: runName }),
+		];
 		const seq = [];
 		const start = 28 + Math.floor(Math.random() * 12);
 		seq.push(start);
@@ -863,17 +1153,36 @@
 		seq.push(Math.max(0, seq[1] + (Math.random() > 0.5 ? 7 : -5) + Math.floor(Math.random() * 6)));
 		let i = 0;
 		result.classList.remove('hidden');
-		result.innerHTML = `<div><strong>${stages[i]}</strong></div><div class="meta">${t('agentScoreEstimate')}: ${seq[0]}</div>`;
+		const renderWorkingFrame = (stageText, scoreText) => {
+			const now = Date.now();
+			if (now >= nextActionTs) {
+				currentActionUrl = actionUrls[actionIndex % Math.max(1, actionUrls.length)] || '';
+				actionIndex += 1;
+				actionUntilTs = now + DEBUT_HOLD_MS;
+				nextActionTs = actionUntilTs + randomInt(1100, 2300);
+			}
+			const inActionWindow = now < actionUntilTs;
+			setExecutionActionVisual(selectedAgentName, inActionWindow ? currentActionUrl : '');
+			result.innerHTML = `
+			<div class="using-line">
+				<img src="${agentImageUrl(selectedAgentName)}" alt="${runName}" decoding="async"/>
+				<div><strong>${t('usingLabel')}:</strong> ${runName}</div>
+			</div>
+			<div class="stage-log"><strong>${stageText}</strong></div>
+			<div class="meta">${t('agentScoreEstimate')}: ${scoreText}</div>
+		`;
+		};
+		renderWorkingFrame(stages[i], String(seq[0]));
 		const timer = setInterval(() => {
 			i = (i + 1) % stages.length;
 			const shown = seq.slice(0, Math.min(seq.length, i + 2));
-			result.innerHTML = `
-				<div><strong>${stages[i]}</strong></div>
-				<div class="meta">${t('agentScoreEstimate')}: ${shown.join(' → ')}</div>
-			`;
+			renderWorkingFrame(stages[i], shown.join(' → '));
 		}, 850);
 		return {
-			stop: () => clearInterval(timer),
+			stop: () => {
+				clearInterval(timer);
+				setExecutionActionVisual(selectedAgentName, '');
+			},
 			scoreSeq: seq,
 		};
 	}
@@ -881,11 +1190,13 @@
 	async function runTask() {
 		const taskId = byId('task-select').value;
 		if (!taskId) return;
+		const selectedAgentName = byId('agent-select').value || '';
+		const selectedAgentCard = resolveSelectableAgentCard(selectedAgentName) || {};
 		const runBtn = byId('run-task-btn');
 		const originalLabel = runBtn.textContent;
 		runBtn.disabled = true;
 		runBtn.textContent = t('running');
-		const working = startWorkingState();
+		const working = startWorkingState(selectedAgentCard, selectedAgentName);
 		try {
 			const runPromise = jfetch('/run-task', {
 				method: 'POST',
@@ -893,7 +1204,7 @@
 					task_id: taskId,
 					user_id: state.userId,
 					instructions: byId('instructions').value || '',
-					agent_name: byId('agent-select').value || ''
+					agent_name: selectedAgentName
 				})
 			});
 			const anticipationDelay = 1000 + Math.floor(Math.random() * 1000);
@@ -907,6 +1218,8 @@
 			const agentOutputs = Array.isArray(displayPayload.agent_outputs) ? displayPayload.agent_outputs : [];
 			const fullOutput = String(displayPayload.agent_output_full || '');
 			const costBreakdown = displayPayload.cost_breakdown || {};
+			const runDisplayName = String(selectedAgentCard.name || selectedAgentName || 'Agent');
+			const traitReason = traitAttribution(selectedAgentCard, Boolean(payload.success));
 			const result = byId('result');
 			const currentBoard = state.tasksPayload || {};
 			const unlockHint = nextUnlockHint(currentBoard);
@@ -925,6 +1238,16 @@
 			result.classList.remove('success', 'failed');
 			result.classList.add(payload.success ? 'success' : 'failed');
 			result.innerHTML = `
+				<div class="attribution">
+					<div class="attribution-head">
+						<img src="${agentImageUrl(selectedAgentName)}" alt="${runDisplayName}" decoding="async"/>
+						<div>
+							<div><strong>${t('usingLabel')}:</strong> ${runDisplayName}</div>
+							<div class="meta">${selectedAgentCard.role_label || ''}</div>
+						</div>
+					</div>
+					<div>${traitReason}</div>
+				</div>
 				<div><strong>${displayPayload.headline || displayPayload.message || displayPayload.summary || t('result')}</strong></div>
 				<div>${displayPayload.message || ''}</div>
 				<div class="result-grid">
@@ -949,7 +1272,7 @@
 				${displayPayload.missing_focus ? `<div><strong>${t('missingFocus')}:</strong> ${displayPayload.missing_focus}</div>` : ''}
 				${displayPayload.retry_suggestion ? `<div><strong>${t('retryTip')}:</strong> ${displayPayload.retry_suggestion}</div>` : ''}
 				<div><strong>${t('learningLoop')}:</strong> ${payload.success ? t('learningSuccess') : t('learningFail')}</div>
-				${issues.length ? `<div><strong>${t('issues')}:</strong><ul class="issues">${issues.map(x => `<li>${x}</li>`).join('')}</ul></div>` : ''}
+				${issues.length ? `<div><strong>${t('resultIssues')}:</strong><ul class="issues">${issues.map(x => `<li>${x}</li>`).join('')}</ul></div>` : ''}
 				${suggestions.length ? `<div><strong>${t('suggestions')}:</strong><ul class="issues">${suggestions.map(x => `<li>${x}</li>`).join('')}</ul></div>` : ''}
 				${
 					fullOutput
@@ -1005,6 +1328,12 @@
 		localStorage.setItem('play_lang', currentLang);
 		onLanguageChange();
 	});
+	warmImageCacheBatch([
+		toAssetUrl('static/background.png'),
+		...Object.values(AGENT_IMAGE_FILES).map((file) => toAssetUrl(file)),
+		...Object.values(AGENT_DEBUT_FILES).map((file) => toAssetUrl(file)),
+		...Object.values(AGENT_ACTION_FILES).flat().map((file) => toAssetUrl(file)),
+	]);
 	applyI18nStatic();
 	updateInstructionCount();
 </script>
