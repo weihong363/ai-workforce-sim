@@ -18,6 +18,7 @@
 			--env-image: url('/play-assets/static/background.png');
 		}
 		body { margin: 0; font-family: "Avenir Next", "Segoe UI", sans-serif; background: radial-gradient(circle at top right, #eef7ff 0%, #f4f6fb 35%, #f4f6fb 100%); color: var(--text); position: relative; }
+		body.modal-open { overflow: hidden; }
 		body::before {
 			content: "";
 			position: fixed;
@@ -41,13 +42,32 @@
 		.wrap, .card { position: relative; z-index: 1; }
 		.wrap { min-height: 100vh; display: grid; place-items: center; padding: 20px; }
 		.card {
-			width: min(1080px, 96vw);
+			width: min(1220px, 97vw);
 			background: rgba(255,255,255,.93);
 			border: 1px solid var(--line);
 			border-radius: 16px;
 			padding: 24px;
 			box-shadow: 0 12px 28px rgba(20,35,60,.10);
 			overflow: hidden;
+		}
+		.wrap.campaign-mode {
+			padding: 10px;
+			align-items: start;
+		}
+		.card.campaign-mode {
+			width: min(1380px, 98vw);
+			max-height: calc(100vh - 20px);
+			padding: 14px 16px;
+			border-radius: 14px;
+		}
+		.card.campaign-mode #step-main:not(.hidden) {
+			display: flex;
+			flex-direction: column;
+			min-height: calc(100vh - 78px);
+		}
+		.card.campaign-mode #step-main > h2 {
+			font-size: 22px;
+			margin-bottom: 6px;
 		}
 		.card::before {
 			content: "";
@@ -76,9 +96,120 @@
 		.btn-ghost { background: #ffffff; color: #0f766e; border: 1px solid #9dd8d3; }
 		.row { display: flex; gap: 10px; align-items: center; flex-wrap: wrap; }
 		.grid { display: grid; grid-template-columns: 1.05fr .95fr; gap: 16px; }
+		.play-shell { display: grid; grid-template-columns: minmax(220px, .78fr) minmax(0, 1.45fr) minmax(220px, .82fr); gap: 16px; align-items: start; }
+		.lane { min-width: 0; }
+		.card.campaign-mode .play-shell {
+			flex: 1;
+			min-height: 0;
+			height: calc(100vh - 126px);
+			gap: 12px;
+		}
+		.card.campaign-mode .lane {
+			min-height: 0;
+			overflow: auto;
+			scrollbar-gutter: stable;
+		}
+		.story-rail { background: rgba(248,250,252,.78); border-color: rgba(148,163,184,.34); }
+		.card.campaign-mode .story-rail,
+		.card.campaign-mode .main-stage,
+		.card.campaign-mode .status-rail {
+			padding: 10px;
+			border-radius: 10px;
+		}
+		.story-rail .task { position: relative; opacity: .76; background: rgba(255,255,255,.72); cursor: pointer; }
+		.story-rail .task.selected,
+		.story-rail .task:hover,
+		.story-rail .task.reco { opacity: 1; }
+		.story-section-toggle {
+			width: 100%;
+			display: flex;
+			align-items: center;
+			gap: 8px;
+			justify-content: flex-start;
+			padding: 8px 6px;
+			margin-top: 10px;
+			background: transparent;
+			border: 0;
+			color: #1f2937;
+			cursor: pointer;
+		}
+		.story-section-toggle:first-of-type { margin-top: 4px; }
+		.story-section-toggle .toggle-label {
+			font-size: 15px;
+			font-weight: 700;
+		}
+		.story-section-icon {
+			width: 16px;
+			font-size: 12px;
+			color: #64748b;
+			transition: transform .14s ease;
+		}
+		.story-section-toggle.collapsed .story-section-icon { transform: rotate(-90deg); }
+		.story-section-body.hidden { display: none; }
+		.main-stage { background: linear-gradient(180deg, rgba(255,255,255,.96) 0%, rgba(248,252,251,.96) 100%); box-shadow: inset 0 1px 0 rgba(255,255,255,.8), 0 14px 28px rgba(15,23,42,.06); }
+		.status-rail { background: linear-gradient(180deg, rgba(247,250,252,.95) 0%, rgba(241,245,249,.95) 100%); }
 		.panel { border: 1px solid var(--line); border-radius: 12px; padding: 12px; background: #fff; }
+		.stage-kicker { font-size: 11px; text-transform: uppercase; letter-spacing: .16em; color: #6b7280; margin-bottom: 8px; }
+		.main-stage-head { padding: 2px 2px 10px; border-bottom: 1px solid rgba(203,213,225,.8); margin-bottom: 14px; }
+		.stage-layout-copy { margin: 0; color: #526072; font-size: 14px; }
+		.stage-current-scene { border: 1px solid #dce7e4; border-radius: 14px; padding: 12px; background: linear-gradient(135deg, rgba(223,248,245,.7) 0%, rgba(255,255,255,.96) 100%); margin-bottom: 12px; }
+		.stage-current-scene .meta { margin-top: 6px; }
+		.stage-section { margin-top: 14px; }
+		.stage-section:first-of-type { margin-top: 0; }
+		.stage-section-title { margin: 0 0 8px; font-size: 16px; }
+		.status-stack { display: grid; gap: 10px; }
+		.status-card { border: 1px solid rgba(148,163,184,.28); border-radius: 12px; padding: 12px; background: rgba(255,255,255,.88); }
+		.status-card .k { font-size: 11px; text-transform: uppercase; letter-spacing: .14em; color: #6b7280; }
+		.status-card .v { margin-top: 6px; font-size: 22px; font-weight: 800; color: #0f172a; }
+		.status-card .sub { margin-top: 4px; font-size: 13px; color: #566578; }
+		.status-card.user-card .v { font-size: 18px; }
+		.status-card.risk-low .v { color: #15803d; }
+		.status-card.risk-medium .v { color: #b45309; }
+		.status-card.risk-high .v { color: #b91c1c; }
+		.state-team { font-size: 13px; color: #44536a; margin-top: 2px; }
 		.label { font-size: 12px; text-transform: uppercase; letter-spacing: .05em; color: #546274; margin: 8px 0 6px; display: block; }
 		.hint { color: #546274; font-size: 12px; }
+		.card.campaign-mode .stage-kicker { font-size: 10px; margin-bottom: 6px; }
+		.card.campaign-mode .stage-layout-copy { font-size: 12px; }
+		.card.campaign-mode .main-stage-head { padding: 0 0 8px; margin-bottom: 10px; }
+		.card.campaign-mode .stage-current-scene { padding: 9px 10px; margin-bottom: 8px; border-radius: 12px; }
+		.card.campaign-mode .stage-section { margin-top: 10px; }
+		.card.campaign-mode .status-stack { gap: 6px; }
+		.card.campaign-mode .status-card { padding: 8px 9px; border-radius: 9px; }
+		.card.campaign-mode .status-card .k { font-size: 10px; letter-spacing: .12em; }
+		.card.campaign-mode .status-card .v { margin-top: 3px; font-size: 16px; }
+		.card.campaign-mode .status-card .sub { margin-top: 2px; font-size: 11px; line-height: 1.28; }
+		.card.campaign-mode .status-card.user-card .v { font-size: 15px; }
+		.card.campaign-mode .agent-run-grid { gap: 8px; }
+		.card.campaign-mode .agent-run-card { padding: 7px; }
+		.card.campaign-mode .agent-run-card img { max-height: 86px; }
+		.card.campaign-mode .agent-detail { margin-top: 6px; padding: 8px; }
+		.card.campaign-mode .prompt-templates { gap: 6px; margin: 6px 0; }
+		.card.campaign-mode textarea { min-height: 86px; }
+		.card.campaign-mode button { padding: 8px 12px; }
+		.card.campaign-mode .result { margin-top: 8px; padding: 10px; scroll-margin-top: 8px; }
+		.card.campaign-mode .result-grid { gap: 6px; margin: 6px 0; }
+		.card.campaign-mode .result-fab {
+			padding: 9px 13px;
+			font-size: 13px;
+			box-shadow: 0 8px 18px rgba(15,23,42,.12);
+		}
+		.card.campaign-mode .result-modal { padding: 16px; }
+		.card.campaign-mode .result-modal-panel {
+			width: min(860px, calc(100vw - 24px));
+			max-height: calc(100vh - 28px);
+			border-radius: 16px;
+		}
+		.card.campaign-mode .result-modal-head { padding: 12px 14px; }
+		.card.campaign-mode .result-modal-body { padding: 12px 14px 16px; }
+		.card.campaign-mode .metric { padding: 7px; border-radius: 9px; }
+		.card.campaign-mode .score-viz,
+		.card.campaign-mode .dynamics-bars,
+		.card.campaign-mode .output-block,
+		.card.campaign-mode .outcome-narrative,
+		.card.campaign-mode .attribution { margin-top: 8px; padding: 9px; }
+		.card.campaign-mode .score-radar-wrap svg { width: 196px; height: 196px; }
+		.card.campaign-mode .main-stage { scroll-behavior: smooth; }
 		.pill { display: inline-block; border-radius: 999px; padding: 4px 10px; font-size: 12px; margin-right: 6px; background: #eef2ff; color: #3730a3; }
 		.pill.ok { background: #ecfdf5; color: var(--ok); }
 		.pill.warn { background: #fff7ed; color: var(--warn); }
@@ -152,16 +283,157 @@
 		.attribution { margin-top: 10px; border: 1px solid #dbe2ea; border-radius: 10px; background: #fff; padding: 10px; }
 		.attribution-head { display: flex; align-items: center; gap: 10px; margin-bottom: 6px; }
 		.attribution-head img { width: 42px; height: 42px; object-fit: contain; border-radius: 8px; border: 1px solid #dbe2ea; }
-		.task { border: 1px solid var(--line); border-radius: 12px; padding: 10px; margin-bottom: 8px; transition: all .15s ease; }
+		.task { border: 1px solid var(--line); border-radius: 12px; padding: 8px 9px; margin-bottom: 6px; transition: all .15s ease; }
 		.task.reco { border-color: #22c55e; background: #f0fdf4; }
 		.task.selectable { cursor: pointer; }
 		.task.selectable:hover { border-color: #0f766e; transform: translateY(-1px); }
 		.task.selected { border-color: #0f766e; box-shadow: 0 0 0 2px rgba(15,118,110,.12); }
+		.story-card-title {
+			display: block;
+			font-size: 13px;
+			font-weight: 700;
+			line-height: 1.25;
+			margin-bottom: 2px;
+			padding-right: 28px;
+			white-space: nowrap;
+			overflow: hidden;
+			text-overflow: ellipsis;
+		}
+		.story-row { margin-top: 3px; font-size: 12px; color: #4f5f74; line-height: 1.35; }
+		.story-card-badge {
+			position: absolute;
+			top: 8px;
+			right: 8px;
+			width: 18px;
+			height: 18px;
+			display: grid;
+			place-items: center;
+			font-size: 10px;
+			font-weight: 800;
+			border-radius: 999px;
+			background: linear-gradient(180deg, #22c55e 0%, #16a34a 100%);
+			color: #f0fdf4;
+			box-shadow: 0 2px 6px rgba(22,163,74,.24);
+		}
+		.story-preview {
+			color: #526072;
+			font-size: 12px;
+			line-height: 1.35;
+			white-space: nowrap;
+			overflow: hidden;
+			text-overflow: ellipsis;
+			padding-right: 24px;
+		}
+		.story-card-reward-mini {
+			margin-top: 5px;
+			display: flex;
+			align-items: center;
+			gap: 8px;
+			flex-wrap: nowrap;
+			font-size: 9px;
+			line-height: 1.2;
+			color: #2563eb;
+			white-space: nowrap;
+			overflow: hidden;
+			text-overflow: ellipsis;
+		}
+		.story-card-reward-mini .reward-line,
+		.story-card-reward-mini .spend-line {
+			white-space: nowrap;
+			color: #2563eb;
+		}
+		.story-card-reward-mini .spend-line { color: #d97706; }
+		.story-card-more {
+			margin-top: 1px;
+			font-size: 12px;
+			color: #94a3b8;
+			letter-spacing: .08em;
+		}
+		.story-card-detail {
+			display: none;
+			margin-top: 6px;
+			padding-top: 6px;
+			border-top: 1px dashed rgba(148,163,184,.34);
+		}
+		.story-rail .task.expanded .story-preview {
+			white-space: normal;
+			overflow: visible;
+			text-overflow: initial;
+			padding-right: 0;
+		}
+		.story-rail .task.expanded .story-card-detail { display: block; }
+		.story-rail .task.expanded .story-card-more { display: none; }
 		.meta { color: var(--muted); font-size: 13px; }
 		.result { margin-top: 12px; border: 1px dashed var(--line); border-radius: 12px; padding: 12px; background: #fcfdff; }
 		.result.success { border-color: #16a34a; background: #f0fdf4; }
 		.result.failed { border-color: #dc2626; background: #fef2f2; }
+		.result-fab {
+			margin-left: auto;
+			padding: 10px 14px;
+			border-radius: 999px;
+			border: 1px solid rgba(15,118,110,.22);
+			background: linear-gradient(135deg, rgba(15,118,110,.96) 0%, rgba(14,116,144,.94) 100%);
+			box-shadow: 0 10px 20px rgba(15,23,42,.12);
+		}
+		.result-fab:hover { transform: translateY(-1px); }
+		.result-modal {
+			position: fixed;
+			inset: 0;
+			z-index: 40;
+			display: flex;
+			align-items: center;
+			justify-content: center;
+			padding: 24px;
+			background: rgba(15,23,42,.22);
+			backdrop-filter: blur(10px);
+			-webkit-backdrop-filter: blur(10px);
+		}
+		.result-modal.hidden { display: none; }
+		.result-modal-panel {
+			width: min(920px, calc(100vw - 32px));
+			max-height: calc(100vh - 40px);
+			display: flex;
+			flex-direction: column;
+			border: 1px solid rgba(219,226,234,.9);
+			border-radius: 18px;
+			background: rgba(255,255,255,.84);
+			box-shadow: 0 24px 60px rgba(15,23,42,.18);
+			overflow: hidden;
+		}
+		.result-modal-head {
+			display: flex;
+			align-items: center;
+			justify-content: space-between;
+			gap: 12px;
+			padding: 14px 16px;
+			border-bottom: 1px solid rgba(219,226,234,.92);
+			background: rgba(248,250,252,.82);
+		}
+		.result-modal-title {
+			font-size: 15px;
+			font-weight: 800;
+			letter-spacing: .02em;
+			color: #1f2937;
+		}
+		.result-modal-close {
+			padding: 8px 12px;
+			border-radius: 999px;
+			border: 1px solid rgba(148,163,184,.36);
+			background: rgba(255,255,255,.88);
+			color: #0f172a;
+		}
+		.result-modal-body {
+			padding: 14px 16px 18px;
+			overflow: auto;
+			background: linear-gradient(180deg, rgba(255,255,255,.18) 0%, rgba(255,255,255,.08) 100%);
+		}
+		.result-modal-body > :first-child { margin-top: 0; }
+		.result-modal-body > :last-child { margin-bottom: 0; }
 		.result-grid { display: grid; grid-template-columns: repeat(3, minmax(0,1fr)); gap: 8px; margin: 8px 0; }
+		.outcome-narrative { margin-top: 8px; border: 1px solid #dbe2ea; border-radius: 10px; background: #fff; padding: 10px; }
+		.outcome-narrative .title { font-weight: 700; margin-bottom: 6px; }
+		.feedback-list { margin: 8px 0 0 0; padding: 0; list-style: none; }
+		.feedback-list li { margin: 4px 0; font-weight: 600; }
 		.metric { border: 1px solid #dbe2ea; border-radius: 10px; padding: 8px; background: #fff; }
 		.metric .k { font-size: 11px; color: #64748b; text-transform: uppercase; letter-spacing: .05em; }
 		.metric .v { font-weight: 700; margin-top: 4px; }
@@ -214,12 +486,33 @@
 		.issues { margin: 8px 0 0 16px; padding: 0; }
 		.prompt-templates { display: flex; gap: 8px; flex-wrap: wrap; margin: 8px 0; }
 		.char-count { margin-left: auto; font-size: 12px; color: #64748b; }
+		@media (max-width: 1100px) {
+			.play-shell { grid-template-columns: 1fr; }
+		}
 		@media (max-width: 980px) { .agent-run-grid { grid-template-columns: 1fr; } }
 		@media (max-width: 768px) {
 			.grid { grid-template-columns: 1fr; }
 			.result-grid { grid-template-columns: 1fr; }
 			.cost-breakdown-cards { grid-template-columns: 1fr; }
 			.dynamics-row { grid-template-columns: 1fr; gap: 4px; }
+			.result-fab {
+				padding: 9px 12px;
+				font-size: 13px;
+			}
+			.result-modal {
+				padding: 12px;
+				align-items: flex-end;
+			}
+			.result-modal-panel {
+				width: min(100%, calc(100vw - 24px));
+				max-height: calc(100vh - 20px);
+				border-radius: 16px 16px 12px 12px;
+			}
+			.result-modal-head,
+			.result-modal-body {
+				padding-left: 12px;
+				padding-right: 12px;
+			}
 			h1 { font-size: 28px; }
 			h2 { font-size: 24px; }
 		}
@@ -299,54 +592,112 @@
 
 		<section id="step-main" class="hidden">
 			<h2>Play</h2>
-			<div class="row" style="margin-bottom:8px;">
-				<span id="state-user" class="pill"></span>
-				<span id="state-wallet" class="pill"></span>
-				<span id="state-progress" class="pill"></span>
-				<span id="state-trial" class="pill"></span>
-			</div>
-			<div class="row" style="margin-bottom:8px;">
-				<span id="selected-workers-label" class="pill">Selected Workers:</span>
-				<span id="state-agents" class="meta"></span>
-			</div>
-
-			<div class="grid">
-				<div class="panel">
-					<h3>Available Tasks</h3>
-					<div id="tasks"></div>
-					<h3 style="margin-top:14px;">Locked Tasks</h3>
-					<div id="locked-tasks"></div>
-				</div>
-				<div class="panel">
-					<h3>Run Selected Task</h3>
-					<label class="label" for="task-select">Task</label>
-					<select id="task-select"></select>
-					<p id="selected-task-meta" class="meta"></p>
-					<label class="label" for="agent-select">Executing Worker</label>
-					<select id="agent-select" class="hidden"></select>
-					<div id="execution-agent-grid" class="agent-run-grid"></div>
-					<p id="selected-agent-meta" class="meta"></p>
-					<details id="execution-agent-details" class="agent-detail hidden">
-						<summary id="execution-agent-details-title">Details</summary>
-						<div id="execution-agent-details-body"></div>
-					</details>
-					<div class="prompt-templates">
-						<button id="tpl-clear" class="btn-ghost" type="button">Clear + Specific</button>
-						<button id="tpl-metrics" class="btn-ghost" type="button">Add Metrics</button>
-						<button id="tpl-risk" class="btn-ghost" type="button">Add Risk</button>
+			<div class="play-shell">
+				<aside class="lane panel story-rail">
+					<div class="stage-kicker" id="story-rail-kicker">Story Directory</div>
+					<p id="story-rail-copy" class="stage-layout-copy">Browse chapters and pick the situation you want to handle
+						next.</p>
+					<button id="story-available-toggle" class="story-section-toggle" type="button">
+						<span id="story-available-icon" class="story-section-icon">▾</span>
+						<span id="story-rail-title" class="toggle-label">Story Progression</span>
+					</button>
+					<div id="story-available-body" class="story-section-body">
+						<div id="tasks"></div>
 					</div>
-					<label class="label" for="instructions">Instructions</label>
-					<textarea id="instructions" placeholder="Write clear, specific instructions..."></textarea>
-					<div class="row">
-						<span class="hint">Tip: include target customer, budget, timeline, and risk.</span>
-						<span id="instructions-count" class="char-count">0 chars</span>
+					<button id="story-locked-toggle" class="story-section-toggle collapsed" type="button">
+						<span id="story-locked-icon" class="story-section-icon">▾</span>
+						<span id="locked-rail-title" class="toggle-label">Locked Tasks</span>
+					</button>
+					<div id="story-locked-body" class="story-section-body hidden">
+						<div id="locked-tasks"></div>
 					</div>
-					<div class="row">
-						<button id="run-task-btn">Run Task</button>
-						<button id="refresh-tasks-btn" class="btn-secondary">Refresh Tasks</button>
+				</aside>
+				<main class="lane panel main-stage">
+					<div class="main-stage-head">
+						<div class="stage-kicker" id="main-stage-kicker">Main Stage</div>
+						<h3 id="main-stage-title">Make Your Decision</h3>
+						<p id="main-stage-copy" class="stage-layout-copy">Story text, agent reactions, and your next move all happen
+							here.</p>
+					</div>
+					<div class="stage-current-scene">
+						<div id="current-scene-title" class="story-card-title">No scenario selected</div>
+						<p id="current-scene-copy" class="meta">Choose a chapter from the directory to see what is at stake.</p>
+						<p id="selected-task-meta" class="meta"></p>
+					</div>
+					<div class="stage-section">
+						<select id="task-select" class="hidden"></select>
+						<label class="label" for="agent-select" id="agent-select-label">Executing Worker</label>
+						<select id="agent-select" class="hidden"></select>
+						<div id="execution-agent-grid" class="agent-run-grid"></div>
+						<p id="selected-agent-meta" class="meta"></p>
+						<details id="execution-agent-details" class="agent-detail hidden">
+							<summary id="execution-agent-details-title">Details</summary>
+							<div id="execution-agent-details-body"></div>
+						</details>
+					</div>
+					<div class="stage-section">
+						<div class="prompt-templates">
+							<button id="tpl-clear" class="btn-ghost" type="button">Clear + Specific</button>
+							<button id="tpl-metrics" class="btn-ghost" type="button">Add Metrics</button>
+							<button id="tpl-risk" class="btn-ghost" type="button">Add Risk</button>
+						</div>
+						<label class="label" for="instructions">Instructions</label>
+						<textarea id="instructions" placeholder="Write clear, specific instructions..."></textarea>
+						<div class="row">
+							<span class="hint">Tip: include target customer, budget, timeline, and risk.</span>
+							<span id="instructions-count" class="char-count">0 chars</span>
+						</div>
+						<div class="row">
+							<button id="run-task-btn">Run Task</button>
+							<button id="refresh-tasks-btn" class="btn-secondary">Refresh Tasks</button>
+							<button id="result-fab" class="result-fab hidden" type="button">View Outcome</button>
+						</div>
 					</div>
 					<div id="result" class="result hidden"></div>
-				</div>
+					<div id="result-modal" class="result-modal hidden" aria-hidden="true">
+						<div class="result-modal-panel" role="dialog" aria-modal="true" aria-labelledby="result-modal-title">
+							<div class="result-modal-head">
+								<div id="result-modal-title" class="result-modal-title">Outcome Details</div>
+								<button id="result-modal-close" class="result-modal-close" type="button">Close</button>
+							</div>
+							<div id="result-modal-body" class="result-modal-body"></div>
+						</div>
+					</div>
+				</main>
+				<aside class="lane panel status-rail">
+					<div class="stage-kicker" id="status-kicker">Status</div>
+					<h3 id="status-title">Campaign Status</h3>
+					<p id="status-copy" class="stage-layout-copy">Track your resources, risk, and growth before making the next
+						move.</p>
+					<div class="status-stack">
+						<div class="status-card user-card">
+							<div class="k" id="manager-label">Manager</div>
+							<div id="state-user" class="v">-</div>
+							<div class="sub" id="selected-workers-label">Selected Workers</div>
+							<div id="state-agents" class="state-team"></div>
+						</div>
+						<div class="status-card">
+							<div class="k" id="funds-label">Funds</div>
+							<div id="state-wallet" class="v">0.00</div>
+							<div class="sub" id="funds-copy">Wallet available for the next decision.</div>
+						</div>
+						<div id="state-risk-card" class="status-card risk-low">
+							<div class="k" id="risk-label">Risk</div>
+							<div id="state-risk" class="v">Low</div>
+							<div id="state-risk-detail" class="sub">Current scenario pressure is manageable.</div>
+						</div>
+						<div class="status-card">
+							<div class="k" id="growth-label">Growth</div>
+							<div id="state-growth" class="v">50.0</div>
+							<div id="state-progress" class="sub">0 chapters cleared</div>
+						</div>
+						<div class="status-card">
+							<div class="k" id="trial-label">Trial</div>
+							<div id="state-trial" class="v">0 / 2</div>
+							<div id="trial-copy" class="sub">Two successful outcomes complete the trial.</div>
+						</div>
+					</div>
+				</aside>
 			</div>
 		</section>
 	</div>
@@ -375,12 +726,15 @@
 		userId: '',
 		username: '',
 		tasksPayload: null,
+		selectedTaskId: '',
 		successfulRuns: 0,
 		kpiScore: 50,
 		recentDeltas: [],
 		selectableAgents: [],
 		selectedAgentNames: [],
 		boundAgents: [],
+		expandedStoryTaskId: '',
+		storyRailOpenSection: 'available',
 		debutUntilByAgent: {},
 		debutResetTimer: null,
 	};
@@ -462,14 +816,14 @@
 			startManaging: 'Start Managing',
 			continue: 'Continue',
 			chooseWorkers: 'Choose Your Workers',
-			startFirstTask: 'Start First Task',
-			runTask: 'Run Task',
-			refreshTasks: 'Refresh Tasks',
+			startFirstTask: 'Enter Story',
+			runTask: 'Execute Decision',
+			refreshTasks: 'Refresh Scenarios',
 			running: 'Running...',
 			namePlaceholder: 'Your name',
 			instructionsPlaceholder: 'Write clear, specific instructions...',
 			selectTwoWorkers: 'Select exactly 2 workers.',
-			noTasks: 'No available tasks right now.',
+			noTasks: 'No available scenarios right now.',
 			noSelectedAgents: 'No selected agents.',
 			noAvailableAgent: 'No available agent in lineup.',
 			goalProgress: 'Goal progress: {done} / 2',
@@ -478,17 +832,17 @@
 			completed: 'Completed',
 			trialSuccess: 'Trial success',
 			selectedWorkers: 'Selected Workers:',
-			lockedPrefix: 'Locked:',
+			lockedPrefix: 'Unlock condition:',
 			progressUnlock: 'Progress further to unlock.',
-			expect: 'Expect',
+			expect: 'Key Factors',
 			successAtLeast: 'Success >=',
 			chars: 'chars',
 			workingInterpreting: 'Interpreting instruction...',
 			workingDrafting: 'Drafting response...',
 			workingEvaluating: 'Evaluating quality...',
-			agentScoreEstimate: 'Agent Score (estimate)',
+			agentScoreEstimate: 'Outcome Quality (estimate)',
 			status: 'Status',
-			agentScore: 'Agent Score',
+			agentScore: 'Outcome Quality',
 			playerKpi: 'Player KPI',
 			reward: 'Reward',
 			cost: 'Cost',
@@ -503,12 +857,12 @@
 			costFormula: 'Total spend = Thinking effort + Worker hiring fee + Execution overhead',
 			model: 'model',
 			agent: 'agent',
-			scoreDynamics: 'Agent score dynamics',
-			scoreDimensions: 'Score dimensions',
+			scoreDynamics: 'Outcome quality trend',
+			scoreDimensions: 'Impact dimensions',
 			scoreTotal: 'Total score',
 			dynamicsLegend: '0-100 progress',
 			trialProgress: 'Trial progress',
-			nextUnlockHint: 'Next unlock hint',
+			nextUnlockHint: 'Next chapter hint',
 			scoreChange: 'Score change',
 			nearMiss: 'Near miss',
 			whatWell: 'What you did well',
@@ -518,11 +872,11 @@
 			learningLoop: 'Learning loop',
 			learningSuccess: 'Clear prompts improved the output quality.',
 			learningFail: 'Use the retry tip and run again to improve score.',
-			issues: 'Issues',
+			issues: 'Overlooked factors',
 			suggestions: 'Suggestions',
-			agentOutputFull: 'Agent Output (Full)',
+			agentOutputFull: 'Decision Draft (Full)',
 			allStepOutputs: 'All Step Outputs',
-			result: 'Result',
+			result: 'Outcome',
 			runFailed: 'Run failed',
 			nameRequired: 'Please enter a name.',
 			userResolveFailed: 'Unable to resolve user_id for this username.',
@@ -545,29 +899,52 @@
 			goalMain: 'Complete 2 successful tasks to pass.',
 			goalSub: 'Failure costs money.',
 			goalWalletTip: 'Wallet matters: failed runs still cost you',
-			workersTitle: 'Select Your Workers (Choose 2)',
+			workersTitle: 'Choose Your Team (Pick 2)',
 			workersDesc: 'Pick two junior workers for your starting lineup. These choices affect reliability, variance, and cost feel.',
 			workersHiddenTip: 'Each worker also has hidden tendencies you will discover through use.',
-			playTitle: 'Play',
-			availableTasksTitle: 'Available Tasks',
-			lockedTasksTitle: 'Locked Tasks',
-			runSelectedTaskTitle: 'Run Selected Task',
-			taskLabel: 'Task',
-			executingWorkerLabel: 'Executing Worker',
-			instructionsLabel: 'Instructions',
-			instructionsHint: 'Tip: include target customer, budget, timeline, and risk.',
+			playTitle: 'Campaign',
+			storyRailKicker: 'Story Directory',
+			storyRailCopy: 'Browse chapters and pick the situation you want to handle next.',
+			mainStageKicker: 'Main Stage',
+			mainStageCopy: 'Story text, agent reactions, and your next move all happen here.',
+			statusKicker: 'Status',
+			statusTitle: 'Campaign Status',
+			statusCopy: 'Track your resources, risk, and growth before making the next move.',
+			availableTasksTitle: 'Story Progression',
+			lockedTasksTitle: 'Upcoming Chapters',
+			runSelectedTaskTitle: 'Make Your Decision',
+			taskLabel: 'Scenario',
+			executingWorkerLabel: 'Chosen Agent',
+			instructionsLabel: 'Your Decision',
+			instructionsHint: 'Describe how you want your agent to act. The clearer your intent, the better the outcome.',
 			tplClear: 'Clear + Specific',
 			tplMetrics: 'Add Metrics',
 			tplRisk: 'Add Risk',
-			workerDetails: 'Worker details',
+			workerDetails: 'Agent details',
+			managerLabel: 'Manager',
+			fundsLabel: 'Funds',
+			fundsCopy: 'Wallet available for the next decision.',
+			riskPanelLabel: 'Risk',
+			growthLabel: 'Growth',
+			trialLabel: 'Trial',
+			trialCopy: 'Two successful outcomes complete the trial.',
+			noScenarioTitle: 'No scenario selected',
+			noScenarioCopy: 'Choose a chapter from the directory to see what is at stake.',
 			usingLabel: 'Using',
-			stageInterpreting: '{agent} is interpreting...',
-			stageDrafting: '{agent} is drafting...',
-			stageEvaluating: '{agent} is checking quality...',
-			resultIssues: 'Result issues',
+			stageInterpreting: '{agent} is interpreting your decision...',
+			stageDrafting: '{agent} seems uncertain...',
+			stageEvaluating: '{agent} finalizes the plan.',
+			resultIssues: 'What you missed',
 			traitCause: "This happened because of the agent's traits",
 			traitStrengthUsed: 'Trait that helped',
 			traitRiskUsed: 'Trait that hurt',
+			outcomeTitle: 'Outcome',
+			outcomeDetails: 'Outcome Details',
+			viewOutcome: 'View Outcome',
+			close: 'Close',
+			whatHappened: 'What happened',
+			narratorFail: 'Things did not go entirely as planned...',
+			narratorSuccess: 'Your choice moved the story forward.',
 		},
 		zh: {
 			pageTitle: 'AI Workforce Sim - 游玩',
@@ -576,14 +953,14 @@
 			startManaging: '开始管理',
 			continue: '继续',
 			chooseWorkers: '选择你的员工',
-			startFirstTask: '开始第一个任务',
-			runTask: '执行任务',
-			refreshTasks: '刷新任务',
+			startFirstTask: '进入剧情',
+			runTask: '执行决策',
+			refreshTasks: '刷新情境',
 			running: '执行中...',
 			namePlaceholder: '输入你的名字',
 			instructionsPlaceholder: '请输入清晰、具体的指令...',
 			selectTwoWorkers: '请选择 2 名员工。',
-			noTasks: '当前没有可执行任务。',
+			noTasks: '当前没有可执行情境。',
 			noSelectedAgents: '尚未选择员工。',
 			noAvailableAgent: '当前阵容没有可用员工。',
 			goalProgress: '目标进度：{done} / 2',
@@ -594,15 +971,15 @@
 			selectedWorkers: '已选员工：',
 			lockedPrefix: '解锁条件：',
 			progressUnlock: '继续推进即可解锁。',
-			expect: '要求',
+			expect: '关键因素',
 			successAtLeast: '成功阈值 >=',
 			chars: '字',
 			workingInterpreting: '理解指令中...',
 			workingDrafting: '生成方案中...',
 			workingEvaluating: '评估质量中...',
-			agentScoreEstimate: 'Agent 分数（估计）',
+			agentScoreEstimate: '结果质量（估计）',
 			status: '状态',
-			agentScore: 'Agent 分数',
+			agentScore: '结果质量',
 			playerKpi: '玩家 KPI',
 			reward: '奖励',
 			cost: '成本',
@@ -617,7 +994,7 @@
 			costFormula: '总花费 = 思考消耗 + 员工出勤费 + 执行损耗',
 			model: '模型',
 			agent: '员工',
-			scoreDynamics: 'Agent 分数变化',
+			scoreDynamics: '结果质量变化',
 			scoreDimensions: '评分维度',
 			scoreTotal: '总得分',
 			dynamicsLegend: '0-100 进度',
@@ -632,9 +1009,9 @@
 			learningLoop: '学习反馈',
 			learningSuccess: '更清晰的提示词显著提升了输出质量。',
 			learningFail: '根据建议优化提示词后再试一次。',
-			issues: '问题',
+			issues: '遗漏因素',
 			suggestions: '建议',
-			agentOutputFull: 'Agent 输出（全文）',
+			agentOutputFull: '决策草案（全文）',
 			allStepOutputs: '所有步骤输出',
 			result: '执行结果',
 			runFailed: '执行失败',
@@ -662,26 +1039,49 @@
 			workersTitle: '选择你的员工（选 2 名）',
 			workersDesc: '从 3 名初级员工中选择 2 名组成起始阵容。选择会影响稳定性、波动和成本体验。',
 			workersHiddenTip: '每位员工还有隐藏倾向，你会在使用中逐步发现。',
-			playTitle: '开始游玩',
-			availableTasksTitle: '可执行任务',
-			lockedTasksTitle: '已锁定任务',
-			runSelectedTaskTitle: '执行任务',
-			taskLabel: '任务',
-			executingWorkerLabel: '执行员工',
-			instructionsLabel: '指令',
-			instructionsHint: '提示：请尽量包含目标用户、预算、时间线和风险。',
+			playTitle: '战役面板',
+			storyRailKicker: '剧情目录',
+			storyRailCopy: '浏览章节，并选择你接下来要处理的情境。',
+			mainStageKicker: '主舞台',
+			mainStageCopy: '剧情文本、员工反应与你的下一步决策都会在这里展开。',
+			statusKicker: '状态',
+			statusTitle: '当前状态',
+			statusCopy: '在做出下一次决策前，先查看你的资源、风险与增长。',
+			availableTasksTitle: '剧情推进',
+			lockedTasksTitle: '后续章节',
+			runSelectedTaskTitle: '做出你的决策',
+			taskLabel: '情境',
+			executingWorkerLabel: '出战员工',
+			instructionsLabel: '你的决策',
+			instructionsHint: '描述你希望员工如何行动。你的意图越清晰，结果越稳定。',
 			tplClear: '清晰具体',
 			tplMetrics: '补充指标',
 			tplRisk: '补充风险',
 			workerDetails: '员工详情',
+			managerLabel: '管理者',
+			fundsLabel: '资金',
+			fundsCopy: '这是你下一次决策可用的钱包余额。',
+			riskPanelLabel: '风险',
+			growthLabel: '增长',
+			trialLabel: '试用期',
+			trialCopy: '完成 2 次成功结果即可通过试用期。',
+			noScenarioTitle: '尚未选择情境',
+			noScenarioCopy: '从左侧剧情目录选择一章，查看当前局势与风险。',
 			usingLabel: '本次执行',
-			stageInterpreting: '{agent} 正在理解任务...',
-			stageDrafting: '{agent} 正在起草方案...',
-			stageEvaluating: '{agent} 正在检查质量...',
-			resultIssues: '结果问题',
+			stageInterpreting: '{agent} 正在理解你的决策...',
+			stageDrafting: '{agent} 似乎有些犹豫...',
+			stageEvaluating: '{agent} 正在完成最终方案。',
+			resultIssues: '你遗漏了什么',
 			traitCause: '这次结果与该员工特质有关',
 			traitStrengthUsed: '起作用的优势特质',
 			traitRiskUsed: '导致问题的短板特质',
+			outcomeTitle: '结果',
+			outcomeDetails: '结果明细',
+			viewOutcome: '查看结果',
+			close: '关闭',
+			whatHappened: '发生了什么',
+			narratorFail: '事情没有完全按计划推进...',
+			narratorSuccess: '你的决策推动了剧情前进。',
 		},
 	};
 	const t = (k, vars = {}) => {
@@ -747,17 +1147,36 @@
 		byId('lineup-hint').textContent = t('selectTwoWorkers');
 		const sMain = byId('step-main');
 		sMain.querySelector('h2').textContent = t('playTitle');
+		byId('story-rail-kicker').textContent = t('storyRailKicker');
+		byId('story-rail-title').textContent = t('availableTasksTitle');
+		byId('story-rail-copy').textContent = t('storyRailCopy');
+		byId('locked-rail-title').textContent = t('lockedTasksTitle');
+		byId('main-stage-kicker').textContent = t('mainStageKicker');
+		byId('main-stage-title').textContent = t('runSelectedTaskTitle');
+		byId('main-stage-copy').textContent = t('mainStageCopy');
+		byId('status-kicker').textContent = t('statusKicker');
+		byId('status-title').textContent = t('statusTitle');
+		byId('status-copy').textContent = t('statusCopy');
+		byId('result-fab').textContent = t('viewOutcome');
+		byId('result-modal-title').textContent = t('outcomeDetails');
+		byId('result-modal-close').textContent = t('close');
+		byId('manager-label').textContent = t('managerLabel');
 		byId('selected-workers-label').textContent = t('selectedWorkers');
-		sMain.querySelector('.panel h3').textContent = t('availableTasksTitle');
-		sMain.querySelectorAll('.panel h3')[1].textContent = t('runSelectedTaskTitle');
-		sMain.querySelector('.panel h3 + div + h3').textContent = t('lockedTasksTitle');
-		sMain.querySelector('label[for="task-select"]').textContent = t('taskLabel');
-		sMain.querySelector('label[for="agent-select"]').textContent = t('executingWorkerLabel');
+		byId('funds-label').textContent = t('fundsLabel');
+		byId('funds-copy').textContent = t('fundsCopy');
+		byId('risk-label').textContent = t('riskPanelLabel');
+		byId('growth-label').textContent = t('growthLabel');
+		byId('trial-label').textContent = t('trialLabel');
+		byId('trial-copy').textContent = t('trialCopy');
+		byId('current-scene-title').textContent = t('noScenarioTitle');
+		byId('current-scene-copy').textContent = t('noScenarioCopy');
+		byId('agent-select-label').textContent = t('executingWorkerLabel');
 		sMain.querySelector('label[for="instructions"]').textContent = t('instructionsLabel');
 		sMain.querySelector('.hint').textContent = t('instructionsHint');
 		byId('tpl-clear').textContent = t('tplClear');
 		byId('tpl-metrics').textContent = t('tplMetrics');
 		byId('tpl-risk').textContent = t('tplRisk');
+		renderStoryRailSections();
 		updateInstructionCount();
 	}
 
@@ -774,6 +1193,22 @@
 		}
 	}
 
+	function renderStoryRailSections() {
+		const open = String(state.storyRailOpenSection || '');
+		const availableOpen = open === 'available';
+		const lockedOpen = open === 'locked';
+		byId('story-available-toggle').classList.toggle('collapsed', !availableOpen);
+		byId('story-locked-toggle').classList.toggle('collapsed', !lockedOpen);
+		byId('story-available-body').classList.toggle('hidden', !availableOpen);
+		byId('story-locked-body').classList.toggle('hidden', !lockedOpen);
+	}
+
+	function toggleStoryRailSection(sectionName) {
+		const key = String(sectionName || '');
+		state.storyRailOpenSection = state.storyRailOpenSection === key ? '' : key;
+		renderStoryRailSections();
+	}
+
 	async function refreshSelectableAgentsByLang() {
 		const payload = await jfetch(`/agents/choices?lang=${encodeURIComponent(currentLang)}`);
 		const incoming = Array.isArray(payload.agents) ? payload.agents : [];
@@ -788,9 +1223,61 @@
 	}
 
 	function byId(id) { return document.getElementById(id); }
+	function setResultFabVisible(visible) {
+		const fab = byId('result-fab');
+		if (!fab) return;
+		fab.classList.toggle('hidden', !visible);
+	}
+	function openResultModal() {
+		const modal = byId('result-modal');
+		if (!modal) return;
+		modal.classList.remove('hidden');
+		modal.setAttribute('aria-hidden', 'false');
+		document.body.classList.add('modal-open');
+	}
+	function closeResultModal() {
+		const modal = byId('result-modal');
+		if (!modal) return;
+		modal.classList.add('hidden');
+		modal.setAttribute('aria-hidden', 'true');
+		document.body.classList.remove('modal-open');
+	}
+	function setResultModalContent(html, statusClass = '') {
+		const body = byId('result-modal-body');
+		if (!body) return;
+		body.innerHTML = String(html || '');
+		body.classList.remove('success', 'failed');
+		if (statusClass) body.classList.add(statusClass);
+	}
+	function resetResultPresentation() {
+		const result = byId('result');
+		if (result) {
+			result.classList.add('hidden');
+			result.classList.remove('success', 'failed');
+			result.innerHTML = '';
+		}
+		setResultFabVisible(false);
+		setResultModalContent('');
+		closeResultModal();
+	}
+	function setCampaignMode(enabled) {
+		const active = Boolean(enabled);
+		const wrap = document.querySelector('.wrap');
+		const card = document.querySelector('.card');
+		if (wrap) wrap.classList.toggle('campaign-mode', active);
+		if (card) card.classList.toggle('campaign-mode', active);
+	}
 	function show(stepId) {
 		['step-story', 'step-name', 'step-worker', 'step-goal', 'step-agents', 'step-main']
 			.forEach(id => byId(id).classList.toggle('hidden', id !== stepId));
+		setCampaignMode(stepId === 'step-main');
+		if (stepId !== 'step-main') {
+			closeResultModal();
+			setResultFabVisible(false);
+			return;
+		}
+		const hasResult = Boolean(String(byId('result-modal-body')?.innerHTML || '').trim());
+		setResultFabVisible(hasResult);
 	}
 	function normalizeUserId(name) {
 		const cleaned = (name || '').trim().toLowerCase().replace(/[^a-z0-9]+/g, '_').replace(/^_+|_+$/g, '');
@@ -842,14 +1329,12 @@
 
 	function renderTaskBoard(payload) {
 		state.tasksPayload = payload;
-		byId('state-user').textContent = `${t('player')}: ${state.username}`;
-		byId('state-wallet').textContent = `${t('wallet')}: ${Number(payload.wallet_balance || 0).toFixed(2)}`;
-		byId('state-progress').textContent = `${t('completed')}: ${payload.tasks_completed_count || 0}`;
-		byId('state-trial').textContent = `${t('trialSuccess')}: ${state.successfulRuns} / 2`;
 		byId('goal-progress').textContent = t('goalProgress', { done: state.successfulRuns });
 
 		const available = Array.isArray(payload.available) ? payload.available : [];
 		const locked = Array.isArray(payload.locked) ? payload.locked : [];
+		const currentSelectedTaskId = String(state.selectedTaskId || byId('task-select')?.value || '');
+		const validCardKeys = new Set();
 		const tasksDiv = byId('tasks');
 		const lockedDiv = byId('locked-tasks');
 		const taskSelect = byId('task-select');
@@ -857,42 +1342,89 @@
 		lockedDiv.innerHTML = '';
 		taskSelect.innerHTML = '';
 
-		available.forEach(task => {
+		available.forEach((task, idx) => {
+			const story = buildScenarioView(task, idx);
+			const taskId = String(task.task_id || '');
+			const cardKey = storyCardKey(taskId, 'available');
+			const expanded = state.expandedStoryTaskId === cardKey;
+			validCardKeys.add(cardKey);
 			const el = document.createElement('div');
-			el.className = `task selectable ${task.recommended ? 'reco' : ''}`;
+			el.className = `task selectable ${task.recommended ? 'reco' : ''} ${expanded ? 'expanded' : ''}`.trim();
 			el.innerHTML = `
-				<div><strong>${task.title || task.task_id}</strong> ${task.recommended ? `<span class="pill ok">${currentLang === 'zh' ? '推荐' : 'recommended'}</span>` : ''}</div>
-				<div class="meta">${currentLang === 'zh' ? '难度' : 'difficulty'}=${task.difficulty} ${t('reward')}=${task.base_reward} ${t('cost')}=${task.estimated_cost}</div>
-				<div class="meta">${task.description || ''}</div>
+				${task.recommended ? `<span class="story-card-badge" title="${currentLang === 'zh' ? '推荐章节' : 'Recommended chapter'}" aria-label="${currentLang === 'zh' ? '推荐章节' : 'Recommended chapter'}">✦</span>` : ''}
+				<div class="story-card-title">${story.chapterTitle}</div>
+				<div class="story-preview">${story.headline}</div>
+				<div class="story-card-reward-mini">
+					<span class="reward-line">💰 ${story.rewardMini}</span>
+					<span class="spend-line">🪙 ${story.spendMini}</span>
+				</div>
+				<div class="story-card-more">...</div>
+				<div class="story-card-detail">
+					<div class="story-row">⚠ ${story.stakes}</div>
+					<div class="story-row">💰 ${story.rewardHint}</div>
+				</div>
 			`;
 			el.addEventListener('click', () => {
-				taskSelect.value = String(task.task_id || '');
+				state.expandedStoryTaskId = expanded ? '' : cardKey;
+				state.selectedTaskId = taskId;
+				taskSelect.value = taskId;
 				updateSelectedTaskMeta();
+				renderTaskBoard(state.tasksPayload || payload);
 			});
 			tasksDiv.appendChild(el);
 
 			const opt = document.createElement('option');
-			opt.value = task.task_id;
-			opt.textContent = `${task.title || task.task_id} (${task.difficulty})`;
+			opt.value = taskId;
+			opt.textContent = `${story.chapterTitle}`;
 			taskSelect.appendChild(opt);
 		});
 
-		locked.forEach(task => {
+		locked.forEach((task, idx) => {
+			const story = buildScenarioView(task, available.length + idx);
+			const taskId = String(task.task_id || '');
+			const cardKey = storyCardKey(taskId, 'locked');
+			const expanded = state.expandedStoryTaskId === cardKey;
+			validCardKeys.add(cardKey);
 			const el = document.createElement('div');
-			el.className = 'task';
+			el.className = `task ${expanded ? 'expanded' : ''}`.trim();
 			el.innerHTML = `
-				<div><strong>${task.title || task.task_id}</strong></div>
-				<div class="meta">${t('lockedPrefix')} ${task.unlock_condition || t('progressUnlock')}</div>
+				${task.recommended ? `<span class="story-card-badge" title="${currentLang === 'zh' ? '推荐章节' : 'Recommended chapter'}" aria-label="${currentLang === 'zh' ? '推荐章节' : 'Recommended chapter'}">✦</span>` : ''}
+				<div class="story-card-title">${story.chapterTitle}</div>
+				<div class="story-preview">${story.headline}</div>
+				<div class="story-card-reward-mini">
+					<span class="reward-line">💰 ${story.rewardMini}</span>
+					<span class="spend-line">🪙 ${story.spendMini}</span>
+				</div>
+				<div class="story-card-more">...</div>
+				<div class="story-card-detail">
+					<div class="story-row">${t('lockedPrefix')} ${task.unlock_condition || t('progressUnlock')}</div>
+					<div class="story-row">⚠ ${story.stakes}</div>
+				</div>
 			`;
+			el.addEventListener('click', () => {
+				state.expandedStoryTaskId = expanded ? '' : cardKey;
+				renderTaskBoard(state.tasksPayload || payload);
+			});
 			lockedDiv.appendChild(el);
 		});
 
+		if (state.expandedStoryTaskId && !validCardKeys.has(state.expandedStoryTaskId)) {
+			state.expandedStoryTaskId = '';
+		}
+
 		if (available.length > 0) {
 			const firstReco = available.find(t => !!t.recommended) || available[0];
-			taskSelect.value = firstReco.task_id;
+			const selectedTaskId = available.some((item) => String(item.task_id || '') === currentSelectedTaskId)
+				? currentSelectedTaskId
+				: String(firstReco.task_id || '');
+			taskSelect.value = selectedTaskId;
+			state.selectedTaskId = selectedTaskId;
 			updateSelectedTaskMeta();
 		} else {
+			state.selectedTaskId = '';
 			byId('selected-task-meta').textContent = t('noTasks');
+			renderCurrentScene(null, -1);
+			updateStatusPanel(null);
 		}
 	}
 
@@ -903,6 +1435,104 @@
 	}
 
 	function sleep(ms) { return new Promise(resolve => setTimeout(resolve, ms)); }
+
+	function chapterNameByIndex(index) {
+		const en = [
+			'First Assignment',
+			'Market Pressure Rising',
+			'Budget Tension',
+			'Stakeholder Scrutiny',
+			'High-Stakes Expansion',
+		];
+		const zh = [
+			'初次委托',
+			'市场压力上升',
+			'预算拉扯',
+			'关键方审视',
+			'高压扩张',
+		];
+		const bank = currentLang === 'zh' ? zh : en;
+		if (index < bank.length) return bank[index];
+		return currentLang === 'zh' ? `扩展章节 ${index + 1}` : `Extended Chapter ${index + 1}`;
+	}
+
+	function stakesByDifficulty(task) {
+		const diff = String(task?.difficulty || '').toLowerCase();
+		if (currentLang === 'zh') {
+			if (diff === 'hard') return '失败将显著压缩后续决策空间。';
+			if (diff === 'medium') return '若判断失误，资金与节奏都会受影响。';
+			return '这是低风险试探，但会影响团队信心。';
+		}
+		if (diff === 'hard') return 'A bad call here can heavily restrict your next moves.';
+		if (diff === 'medium') return 'A weak decision may hurt both budget and momentum.';
+		return 'Low risk, but this still shapes team confidence.';
+	}
+
+	function buildScenarioView(task, idx) {
+		const chapterPrefix = currentLang === 'zh' ? `第 ${idx + 1} 章` : `Chapter ${idx + 1}`;
+		const chapterTitle = `${chapterPrefix}: ${chapterNameByIndex(idx)}`;
+		const fallbackHeadline = currentLang === 'zh'
+			? '你面前出现了一个新的经营情境。'
+			: 'A new operating situation demands your decision.';
+		const headline = String(task?.description || '').trim() || fallbackHeadline;
+		const stakes = stakesByDifficulty(task);
+		const reward = Number(task?.base_reward || 0);
+		const cost = Number(task?.estimated_cost || 0);
+		const rewardHint = currentLang === 'zh'
+			? `预计奖励 ${reward.toFixed(2)}，预计花费 ${cost.toFixed(2)}。`
+			: `Expected reward ${reward.toFixed(2)}, expected spend ${cost.toFixed(2)}.`;
+		const rewardMini = currentLang === 'zh'
+			? `预计奖励 ${reward.toFixed(2)}`
+			: `Expected reward ${reward.toFixed(2)}`;
+		const spendMini = currentLang === 'zh'
+			? `预计花费 ${cost.toFixed(2)}`
+			: `Expected spend ${cost.toFixed(2)}`;
+		return { chapterTitle, headline, stakes, rewardHint, rewardMini, spendMini };
+	}
+
+	function storyCardKey(taskId, kind) {
+		return `${String(kind || 'available')}:${String(taskId || '')}`;
+	}
+
+	function riskInfoFromTask(task) {
+		const diff = String(task?.difficulty || '').toLowerCase();
+		if (currentLang === 'zh') {
+			if (diff === 'hard') return { level: '高', detail: '这一章容错很低，判断失误会直接伤到资金与推进节奏。', cls: 'risk-high' };
+			if (diff === 'medium') return { level: '中', detail: '这是一段有压力的推进，模糊决策会放大代价。', cls: 'risk-medium' };
+			return { level: '低', detail: '这是相对安全的试探回合，适合建立优势。', cls: 'risk-low' };
+		}
+		if (diff === 'hard') return { level: 'High', detail: 'This chapter punishes weak calls and can slow your campaign sharply.', cls: 'risk-high' };
+		if (diff === 'medium') return { level: 'Medium', detail: 'Pressure is building here, and vague choices can become costly.', cls: 'risk-medium' };
+		return { level: 'Low', detail: 'A safer round for building momentum and learning the situation.', cls: 'risk-low' };
+	}
+
+	function renderCurrentScene(task, idx) {
+		if (!task) {
+			byId('current-scene-title').textContent = t('noScenarioTitle');
+			byId('current-scene-copy').textContent = t('noScenarioCopy');
+			return;
+		}
+		const story = buildScenarioView(task, idx);
+		byId('current-scene-title').textContent = story.chapterTitle;
+		byId('current-scene-copy').textContent = story.headline;
+	}
+
+	function updateStatusPanel(task = null) {
+		const board = state.tasksPayload || {};
+		byId('state-user').textContent = state.username || '-';
+		byId('state-wallet').textContent = Number(board.wallet_balance || 0).toFixed(2);
+		byId('state-growth').textContent = state.kpiScore.toFixed(1);
+		byId('state-progress').textContent = currentLang === 'zh'
+			? `已完成 ${board.tasks_completed_count || 0} 个章节`
+			: `${board.tasks_completed_count || 0} chapters cleared`;
+		byId('state-trial').textContent = `${state.successfulRuns} / 2`;
+		const risk = riskInfoFromTask(task);
+		byId('state-risk').textContent = risk.level;
+		byId('state-risk-detail').textContent = risk.detail;
+		const riskCard = byId('state-risk-card');
+		riskCard.classList.remove('risk-low', 'risk-medium', 'risk-high');
+		riskCard.classList.add(risk.cls);
+	}
 
 	function nextUnlockHint(payload) {
 		const locked = Array.isArray(payload?.locked) ? payload.locked : [];
@@ -915,9 +1545,18 @@
 		const payload = state.tasksPayload || {};
 		const selected = byId('task-select').value;
 		const available = Array.isArray(payload.available) ? payload.available : [];
-		const task = available.find(t => t.task_id === selected);
-		if (!task) return;
+		const idx = available.findIndex(t => t.task_id === selected);
+		const task = idx >= 0 ? available[idx] : null;
+		if (!task) {
+			state.selectedTaskId = '';
+			renderCurrentScene(null, -1);
+			updateStatusPanel(null);
+			return;
+		}
+		state.selectedTaskId = String(selected || '');
+		renderCurrentScene(task, idx);
 		byId('selected-task-meta').textContent = `${t('expect')}: ${task.required_constraints?.join(', ') || 'n/a'} | ${t('successAtLeast')} ${task.success_threshold}`;
+		updateStatusPanel(task);
 		[...byId('tasks').querySelectorAll('.task.selectable')].forEach((node, idx) => {
 			const rowTaskId = String(available[idx]?.task_id || '');
 			node.classList.toggle('selected', rowTaskId === selected);
@@ -984,6 +1623,33 @@
 		return success
 			? `${t('traitCause')}. ${t('traitStrengthUsed')}: ${strength || 'n/a'}.`
 			: `${t('traitCause')}. ${t('traitRiskUsed')}: ${weakness || 'n/a'}.`;
+	}
+
+	function toRiskLabel(issues, nearMiss) {
+		const count = Array.isArray(issues) ? issues.length : 0;
+		if (count >= 3) return currentLang === 'zh' ? '高' : 'High';
+		if (count >= 1 || nearMiss) return currentLang === 'zh' ? '中' : 'Medium';
+		return currentLang === 'zh' ? '低' : 'Low';
+	}
+
+	function buildNarrativeOutcome({ success, nearMiss, agentName, issues }) {
+		const issueText = Array.isArray(issues) && issues.length ? String(issues[0]) : '';
+		if (success) {
+			if (currentLang === 'zh') {
+				return `${agentName} 把决策快速转化为可执行方案。整体推进顺利，剧情向前迈进了一步。`;
+			}
+			return `${agentName} translated your decision into an actionable plan. The situation stabilizes and the story moves forward.`;
+		}
+		if (nearMiss) {
+			if (currentLang === 'zh') {
+				return `${agentName} 给出了有潜力的方案，但仍有关键点不够扎实。再补一处要点，就可能扭转局面。`;
+			}
+			return `${agentName} produced a promising draft, but one key factor was still weak. One adjustment could change the outcome next round.`;
+		}
+		if (currentLang === 'zh') {
+			return `${agentName} 在执行中遗漏了关键因素，方案显得脆弱。${issueText ? `最明显的问题是：${issueText}` : '你需要更清晰地指引下一步。'}`;
+		}
+		return `${agentName} moved quickly but overlooked critical factors, leaving the plan fragile. ${issueText ? `Most visible issue: ${issueText}.` : 'Guide the next decision with clearer intent.'}`;
 	}
 
 	function clampScore(value) {
@@ -1146,6 +1812,7 @@
 				<div class="agent-label">${agent.role_label || ''}</div>
 				<div><strong>${agent.name || name}</strong></div>
 				<p class="agent-summary">${agent.description || ''}</p>
+				<p class="meta"><em>${agent.player_feel || ''}</em></p>
 				<p class="meta">${t('cost')}: <span class="cost-icons">${icon}</span> (${agent.cost_level || 'medium'})</p>
 				<details class="agent-hover-detail">
 					<summary>${t('workerDetails')}</summary>
@@ -1193,6 +1860,7 @@
 				<div class="agent-label" style="margin-top:6px;">${card.role_label || ''}</div>
 				<div><strong>${card.name || preset}</strong></div>
 				<div class="meta">${card.description || ''}</div>
+				<div class="meta"><em>${card.player_feel || ''}</em></div>
 				<div class="meta">${t('cost')}: <span class="cost-icons">${icon}</span></div>
 			`;
 			node.addEventListener('click', () => {
@@ -1260,7 +1928,6 @@
 			detailWrap.classList.add('hidden');
 			return;
 		}
-		stateAgents.textContent = bound.map(x => String(x.preset || '')).join(', ');
 		bound.forEach(item => {
 			const preset = String(item.preset || '');
 			const card = cardsByName.get(preset) || {};
@@ -1269,13 +1936,18 @@
 			opt.textContent = `${card.name || preset} (${card.role_label || (currentLang === 'zh' ? '员工' : 'worker')})`;
 			agentSelect.appendChild(opt);
 		});
+		stateAgents.textContent = bound.map((item) => {
+			const preset = String(item.preset || '');
+			const card = cardsByName.get(preset) || {};
+			return String(card.name || preset);
+		}).join(' / ');
 		const selected = bound.some(x => String(x.preset || '') === currentSelected)
 			? currentSelected
 			: String(bound[0].preset || '');
 		agentSelect.value = selected;
 		const card = cardsByName.get(selected) || {};
 		renderExecutionAgentChoices(selected, bound, cardsByName);
-		agentMeta.textContent = `${card.description || ''}`.trim() || (currentLang === 'zh' ? `本次执行员工：${selected}` : `Using ${selected} for this run.`);
+		agentMeta.textContent = `${card.description || ''} ${card.player_feel || ''}`.trim() || (currentLang === 'zh' ? `本次执行员工：${selected}` : `Using ${selected} for this run.`);
 		detailTitle.textContent = `${t('workerDetails')}: ${card.name || selected}`;
 		detailBody.innerHTML = `
 			<div>${currentLang === 'zh' ? '优势' : 'Strength'}: ${Array.isArray(card.strengths) ? card.strengths[0] : 'n/a'}</div>
@@ -1293,6 +1965,7 @@
 
 	function startWorkingState(agentCard, selectedAgentName) {
 		const result = byId('result');
+		resetResultPresentation();
 		const runName = String(agentCard?.name || selectedAgentName || 'Agent');
 		const actionUrls = agentActionUrls(selectedAgentName);
 		let actionIndex = 0;
@@ -1387,6 +2060,8 @@
 			const traitReason = traitAttribution(selectedAgentCard, Boolean(payload.success));
 			const result = byId('result');
 			const currentBoard = state.tasksPayload || {};
+			const currentTaskList = Array.isArray(currentBoard.available) ? currentBoard.available : [];
+			const selectedTask = currentTaskList.find((item) => String(item.task_id || '') === String(taskId || '')) || null;
 			const unlockHint = nextUnlockHint(currentBoard);
 			const delta = Number(displayPayload.score_delta || 0);
 			if (Number.isFinite(delta) && payload.score_delta !== null && payload.score_delta !== undefined) {
@@ -1404,10 +2079,18 @@
 			const netClass = netResult > 0 ? 'net-positive' : (netResult < 0 ? 'net-negative' : 'net-neutral');
 			const scoreSeq = [...working.scoreSeq, finalScore];
 			const scoreDimensions = buildScoreDimensions(finalScore, gotRight, issues, Boolean(displayPayload.near_miss));
-			result.classList.remove('hidden');
-			result.classList.remove('success', 'failed');
-			result.classList.add(payload.success ? 'success' : 'failed');
-			result.innerHTML = `
+			const riskLabel = toRiskLabel(issues, Boolean(displayPayload.near_miss));
+			const narrativeOutcome = buildNarrativeOutcome({
+				success: Boolean(payload.success),
+				nearMiss: Boolean(displayPayload.near_miss),
+				agentName: runDisplayName,
+				issues,
+			});
+			if (currentBoard && typeof currentBoard === 'object') {
+				currentBoard.wallet_balance = walletAfter;
+			}
+			updateStatusPanel(selectedTask);
+			const resultHtml = `
 				<div class="attribution">
 					<div class="attribution-head">
 						<img src="${agentImageUrl(selectedAgentName)}" alt="${runDisplayName}" decoding="async"/>
@@ -1418,8 +2101,21 @@
 					</div>
 					<div>${traitReason}</div>
 				</div>
-				<div><strong>${displayPayload.headline || displayPayload.message || displayPayload.summary || t('result')}</strong></div>
-				<div>${displayPayload.message || ''}</div>
+				<div class="outcome-narrative">
+					<div class="title">${t('outcomeTitle')}</div>
+					<div>${payload.success ? '✅' : '❌'} ${displayPayload.headline || displayPayload.message || displayPayload.summary || t('result')}</div>
+					<div style="margin-top:6px;"><strong>${t('whatHappened')}:</strong> ${narrativeOutcome}</div>
+					<div style="margin-top:6px;" class="meta"><em>${payload.success ? t('narratorSuccess') : t('narratorFail')}</em></div>
+				</div>
+				<div class="outcome-narrative">
+					<div class="title">${currentLang === 'zh' ? '游戏反馈' : 'Game Feedback'}</div>
+					<ul class="feedback-list">
+						<li>💰 ${currentLang === 'zh' ? '资金变化' : 'Funds'}: ${netResult > 0 ? '+' : ''}${netResult.toFixed(2)}</li>
+						<li>⚠ ${currentLang === 'zh' ? '风险等级' : 'Risk'}: ${riskLabel}</li>
+						<li>📊 ${t('agentScore')}: ${Math.round(finalScore)}</li>
+						<li>📈 ${currentLang === 'zh' ? '玩家KPI' : 'Player KPI'}: ${state.kpiScore.toFixed(1)}</li>
+					</ul>
+				</div>
 				<div class="result-grid">
 					<div class="metric"><div class="k">${t('status')}</div><div class="v">${displayPayload.status}</div></div>
 					<div class="metric"><div class="k">${t('agentScore')}</div><div class="v">${finalScore}</div></div>
@@ -1440,8 +2136,8 @@
 				${displayPayload.near_miss ? `<div class="pill warn">${t('nearMiss')}: ${displayPayload.hint || ''}</div>` : ''}
 				${well.length ? `<div><strong>${t('whatWell')}:</strong><ul class="issues">${well.map(x => `<li>${x}</li>`).join('')}</ul></div>` : ''}
 				${gotRight.length ? `<div><strong>${t('whatRight')}:</strong><ul class="issues">${gotRight.map(x => `<li>${x}</li>`).join('')}</ul></div>` : ''}
-				${displayPayload.missing_focus ? `<div><strong>${t('missingFocus')}:</strong> ${displayPayload.missing_focus}</div>` : ''}
-				${displayPayload.retry_suggestion ? `<div><strong>${t('retryTip')}:</strong> ${displayPayload.retry_suggestion}</div>` : ''}
+				${displayPayload.missing_focus ? `<div><strong>${currentLang === 'zh' ? '关键问题' : 'Key issue'}:</strong> ${displayPayload.missing_focus}</div>` : ''}
+				${displayPayload.retry_suggestion ? `<div><strong>${currentLang === 'zh' ? '建议调整' : 'Suggestion'}:</strong> ${displayPayload.retry_suggestion}</div>` : ''}
 				<div><strong>${t('learningLoop')}:</strong> ${payload.success ? t('learningSuccess') : t('learningFail')}</div>
 				${issues.length ? `<div><strong>${t('resultIssues')}:</strong><ul class="issues">${issues.map(x => `<li>${x}</li>`).join('')}</ul></div>` : ''}
 				${suggestions.length ? `<div><strong>${t('suggestions')}:</strong><ul class="issues">${suggestions.map(x => `<li>${x}</li>`).join('')}</ul></div>` : ''}
@@ -1463,14 +2159,20 @@
 						: ''
 				}
 			`;
+			result.classList.add('hidden');
+			result.classList.remove('success', 'failed');
+			result.innerHTML = '';
+			setResultModalContent(resultHtml, payload.success ? 'success' : 'failed');
+			setResultFabVisible(true);
 			await loadTasks();
 			await loadBoundAgents();
 		} catch (err) {
 			const result = byId('result');
-			result.classList.remove('hidden');
-			result.classList.remove('success');
-			result.classList.add('failed');
-			result.innerHTML = `<div class="pill err">${t('runFailed')}: ${String(err.message || err)}</div>`;
+			result.classList.add('hidden');
+			result.classList.remove('success', 'failed');
+			result.innerHTML = '';
+			setResultModalContent(`<div class="pill err">${t('runFailed')}: ${String(err.message || err)}</div>`, 'failed');
+			setResultFabVisible(true);
 		} finally {
 			working.stop();
 			runBtn.disabled = false;
@@ -1487,6 +2189,8 @@
 	});
 	byId('confirm-lineup-btn').addEventListener('click', confirmLineup);
 	byId('refresh-tasks-btn').addEventListener('click', loadTasks);
+	byId('story-available-toggle').addEventListener('click', () => toggleStoryRailSection('available'));
+	byId('story-locked-toggle').addEventListener('click', () => toggleStoryRailSection('locked'));
 	byId('task-select').addEventListener('change', updateSelectedTaskMeta);
 	byId('agent-select').addEventListener('change', renderBoundAgents);
 	byId('instructions').addEventListener('input', updateInstructionCount);
@@ -1494,6 +2198,14 @@
 	byId('tpl-metrics').addEventListener('click', () => applyPromptTemplate('metrics'));
 	byId('tpl-risk').addEventListener('click', () => applyPromptTemplate('risk'));
 	byId('run-task-btn').addEventListener('click', runTask);
+	byId('result-fab').addEventListener('click', openResultModal);
+	byId('result-modal-close').addEventListener('click', closeResultModal);
+	byId('result-modal').addEventListener('click', (event) => {
+		if (event.target === byId('result-modal')) closeResultModal();
+	});
+	window.addEventListener('keydown', (event) => {
+		if (event.key === 'Escape') closeResultModal();
+	});
 	// Language toggle is temporarily disabled.
 	warmImageCacheBatch([
 		toAssetUrl('static/background.png'),
@@ -1501,6 +2213,7 @@
 		...Object.values(AGENT_DEBUT_FILES).map((file) => toAssetUrl(file)),
 		...Object.values(AGENT_ACTION_FILES).flat().map((file) => toAssetUrl(file)),
 	]);
+	setCampaignMode(!byId('step-main').classList.contains('hidden'));
 	applyI18nStatic();
 	updateInstructionCount();
 </script>

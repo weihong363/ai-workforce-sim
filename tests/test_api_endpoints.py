@@ -402,4 +402,4 @@ def test_play_page_route_exists() -> None:
     assert "Run your own AI workforce" in resp.text
     assert "You were once a CEO." in resp.text
     assert "Interpreting instruction..." in resp.text
-    assert "Agent Output" in resp.text
+    assert "Decision Draft (Full)" in resp.text
