@@ -1,6 +1,6 @@
 """Run execution and result retrieval endpoints."""
 
-from fastapi import APIRouter, HTTPException, Path
+from fastapi import APIRouter, HTTPException, Path, Query
 
 from api.run_task import get_runtime_run, run_task
 from api.schemas import ErrorResponse, RunTaskRequest
@@ -20,7 +20,10 @@ router = APIRouter(tags=["runs"])
     summary="Run Task",
     description="Execute one gameplay task for a user and return a frontend-friendly result payload.",
 )
-def run_task_route(request: RunTaskRequest) -> dict:
+def run_task_route(
+        request: RunTaskRequest,
+        lang: str = Query("en", description="Response language, e.g. en / zh-CN"),
+) -> dict:
     settings = get_settings()
     try:
         selected_module = settings.active_game_module
@@ -31,7 +34,7 @@ def run_task_route(request: RunTaskRequest) -> dict:
             instructions=request.instructions,
             selected_agent_name=request.agent_name,
         )
-        return build_run_task_user_response(result)
+        return build_run_task_user_response(result, lang=lang)
     except (ValueError, ModuleLoadError) as exc:
         raise HTTPException(status_code=400, detail=str(exc)) from exc
     except ExecutionError as exc:
@@ -45,7 +48,7 @@ def run_task_route(request: RunTaskRequest) -> dict:
             "timeout",
             "invalid_agent_selection",
         }:
-            return build_failed_run_task_response(exc)
+            return build_failed_run_task_response(exc, lang=lang)
         raise HTTPException(status_code=500, detail=exc.to_dict()) from exc
 
 

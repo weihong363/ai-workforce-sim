@@ -1,6 +1,8 @@
 """Agent management endpoints (admin CRUD)."""
 
-from fastapi import APIRouter, HTTPException, Path
+from copy import deepcopy
+
+from fastapi import APIRouter, HTTPException, Path, Query
 
 from api.schemas import AgentCreateRequest, AgentLineupRequest, AgentUpdateRequest, AgentUserBindRequest
 from core_engine import user_store
@@ -11,23 +13,90 @@ from core_engine.module_facade import ModuleFacade
 
 router = APIRouter(tags=["agents"])
 
+_ZH_AGENT_COPY: dict[str, dict[str, object]] = {
+    "operator": {
+        "name": "执行型员工",
+        "role_label": "稳健执行者",
+        "description": "严格按指令执行，很稳定，但很少超出预期。",
+        "player_feel": "基础任务很稳，冲高分能力较弱。",
+        "strengths": ["高服从", "高稳定"],
+        "weaknesses": ["创意较低", "潜力较低"],
+        "cost_level": "中",
+    },
+    "maverick": {
+        "name": "创意型员工",
+        "role_label": "高风险创意者",
+        "description": "指令清晰时可出彩，指令模糊时容易跑偏。",
+        "player_feel": "目标清晰时很强，目标不清时风险高。",
+        "strengths": ["高创意", "高潜力"],
+        "weaknesses": ["服从较低", "稳定较低"],
+        "cost_level": "中",
+    },
+    "slacker": {
+        "name": "节约型员工",
+        "role_label": "低成本波动型",
+        "description": "成本低，但执行中容易漏细节和跑题。",
+        "player_feel": "省钱场景可用，约束严格时风险高。",
+        "strengths": ["低成本", "有一定创意"],
+        "weaknesses": ["勤勉较低", "稳定较低"],
+        "cost_level": "低",
+    },
+}
+
+
+def _normalize_lang(lang: str) -> str:
+    value = str(lang or "").strip().lower()
+    return "zh" if value.startswith("zh") else "en"
+
+
+def _localize_agent_cards(cards: list[dict], lang: str) -> list[dict]:
+    if _normalize_lang(lang) != "zh":
+        return cards
+    output: list[dict] = []
+    for item in cards:
+        if not isinstance(item, dict):
+            continue
+        card = deepcopy(item)
+        key = str(card.get("agent_name", "")).strip().lower()
+        overlay = _ZH_AGENT_COPY.get(key, {})
+        for field in ("name", "role_label", "description", "player_feel", "cost_level"):
+            value = overlay.get(field)
+            if isinstance(value, str) and value.strip():
+                card[field] = value
+        for field in ("strengths", "weaknesses"):
+            value = overlay.get(field)
+            if isinstance(value, list):
+                card[field] = [str(x) for x in value]
+        output.append(card)
+    return output
+
 
 @router.get(
     "/agents/choices",
     summary="List Selectable Agents",
     description="Return playable junior agent cards with visible attributes and hidden-trait hint.",
 )
-def list_selectable_agent_choices_route() -> dict:
+def list_selectable_agent_choices_route(
+        lang: str = Query("en", description="Response language, e.g. en / zh-CN")) -> dict:
     settings = get_settings()
     try:
         facade = ModuleFacade.from_name(settings.active_game_module)
         chooser = getattr(facade.agents, "list_selectable_agents", None)
         if not callable(chooser):
             raise RuntimeError("Active module does not expose selectable agent cards.")
+        normalized_lang = _normalize_lang(lang)
+        hint = (
+            "每位员工还有隐藏倾向，需要在实战中逐步发现。"
+            if normalized_lang == "zh"
+            else "Each worker also has hidden tendencies you will discover through use."
+        )
+        cards_raw = chooser()
+        cards = cards_raw if isinstance(cards_raw, list) else []
         return {
             "module_name": settings.active_game_module,
-            "hint": "Each worker also has hidden tendencies you will discover through use.",
-            "agents": chooser(),
+            "lang": "zh-CN" if normalized_lang == "zh" else "en-US",
+            "hint": hint,
+            "agents": _localize_agent_cards(cards, normalized_lang),
         }
     except ValueError as exc:
         raise HTTPException(status_code=400, detail=str(exc)) from exc

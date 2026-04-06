@@ -5,6 +5,135 @@ from __future__ import annotations
 from core_engine.errors import ExecutionError
 
 
+def _normalize_lang(lang: str) -> str:
+    value = str(lang or "").strip().lower()
+    return "zh" if value.startswith("zh") else "en"
+
+
+_TEMP_ZH_TEXT: dict[str, str] = {
+    "success": "成功",
+    "failed": "失败",
+    "Task Completed": "任务完成",
+    "Almost There": "接近成功",
+    "Task Failed": "任务失败",
+    "Good work!": "做得很好！",
+    "Almost there!": "差一点就成功了！",
+    "Needs improvement.": "还需要改进。",
+    "Run failed.": "执行失败。",
+    "Task succeeded.": "任务成功。",
+    "Task failed.": "任务失败。",
+    "Fix the key issue and retry. Every run is a learning signal.": "先修复关键问题再重试。每次执行都是一次学习信号。",
+    "Clear instructions made the difference.": "清晰的指令直接提升了结果质量。",
+    "Your structure is solid; one more missing point can push this over the line.": "你的结构已经不错，再补一个缺失点就可能过线。",
+    "Specific instructions usually convert into higher scores and rewards.": "更具体的指令通常会带来更高分和更高奖励。",
+    "Tightening key constraints is the fastest way to improve outcomes.": "补齐关键约束是提升结果最快的方法。",
+    "You are close. Add the missing required point and retry.": "你已经很接近了，补上缺失要点后再试一次。",
+    "You are missing a pricing strategy.": "你缺少定价策略。",
+    "You are missing a risk analysis.": "你缺少风险分析。",
+    "You are missing a clear target customer.": "你缺少清晰的目标用户。",
+    "You are missing a clear timeline.": "你缺少明确的时间线。",
+    "Great improvement": "进步明显",
+    "Good clarity": "指令清晰度较好",
+    "empty output": "模型输出为空",
+    "insufficient balance": "余额不足",
+    "parsing failure": "解析失败",
+    "provider/evaluation failure": "模型或评估失败",
+}
+
+
+def _localize_text_to_zh(text: str) -> str:
+    value = str(text or "").strip()
+    if not value:
+        return value
+    mapped = _TEMP_ZH_TEXT.get(value)
+    if mapped:
+        return mapped
+    lowered = value.lower()
+    if "missing target customer" in lowered:
+        return "缺少目标用户定义。"
+    if "missing pricing" in lowered:
+        return "缺少定价策略。"
+    if "missing risk" in lowered:
+        return "缺少风险分析。"
+    if "missing milestones" in lowered or "missing timeline" in lowered:
+        return "缺少明确时间线。"
+    if "missing budget" in lowered:
+        return "缺少预算信息。"
+    if "instruction too vague" in lowered:
+        return "指令过于模糊。"
+    if "too few required constraint hits" in lowered:
+        return "关键约束命中不足。"
+    if "poor agent-task fit" in lowered:
+        return "员工与任务匹配度偏低。"
+    if "almost success" in lowered:
+        return "接近成功。"
+    if "output quality is below the task requirement" in lowered:
+        return "输出质量未达到任务要求。"
+    if "retry with clearer and more specific instructions" in lowered:
+        return "请用更清晰、更具体的指令重试。"
+    if "retry with shorter prompt scope" in lowered:
+        return "请缩小提示范围后重试，或稍后再试。"
+    if "choose a lower-cost task" in lowered:
+        return "请选择更低成本任务，或先提升钱包余额。"
+    if "add concrete target customer" in lowered:
+        return "请补充明确的目标用户、预算、时间线和可衡量目标。"
+    if "add a clear target customer segment" in lowered:
+        return "请补充清晰的目标用户画像（是谁、在哪里、为什么需要）。"
+    if "add a pricing plan" in lowered:
+        return "请补充至少一个具体价格和套餐方案。"
+    if "add a simple risk section" in lowered:
+        return "请补充风险部分，并给每项风险添加对应缓解措施。"
+    if "add a timeline" in lowered:
+        return "请补充含 2-3 个里程碑和预期日期的时间线。"
+    if "add a budget cap" in lowered:
+        return "请补充预算上限和粗略支出拆分。"
+    if "explicitly include all required constraints" in lowered:
+        return "请在指令中显式覆盖所有必需约束。"
+    if "keep your structure" in lowered:
+        return "保持当前结构，并显式补齐缺失的 1-2 个约束点。"
+    if "retry with clearer instructions and explicit expected format" in lowered:
+        return "请用更清晰的指令并明确期望输出格式后重试。"
+    if "clear audience targeting made the plan stronger" in lowered:
+        return "清晰的目标用户定义显著增强了方案质量。"
+    if "followed instructions with a clear structure" in lowered:
+        return "你按清晰结构完成了指令执行。"
+    if "covered required point" in lowered:
+        return value.replace("Covered required point:", "覆盖了必需要点：")
+    if "great improvement:" in lowered and "points vs last attempt" in lowered:
+        return value.replace("Great improvement:", "进步明显：").replace("points vs last attempt.", "分（相较上次）")
+    return value
+
+
+def _localize_list_to_zh(items: list[str]) -> list[str]:
+    return [_localize_text_to_zh(str(item)) for item in (items or [])]
+
+
+def _localize_payload(payload: dict, lang: str) -> dict:
+    if _normalize_lang(lang) != "zh":
+        return payload
+    out = dict(payload or {})
+    for key in (
+            "status", "headline", "message", "summary", "insight", "hint",
+            "missing_focus", "retry_suggestion", "improvement_message",
+    ):
+        if isinstance(out.get(key), str):
+            out[key] = _localize_text_to_zh(str(out[key]))
+    for key in ("what_you_did_well", "what_you_got_right", "failure_reasons"):
+        if isinstance(out.get(key), list):
+            out[key] = _localize_list_to_zh(out[key])
+    feedback = out.get("feedback")
+    if isinstance(feedback, dict):
+        issues = feedback.get("issues")
+        suggestions = feedback.get("suggestions")
+        if isinstance(issues, list):
+            feedback["issues"] = _localize_list_to_zh(issues)
+        if isinstance(suggestions, list):
+            feedback["suggestions"] = _localize_list_to_zh(suggestions)
+        out["feedback"] = feedback
+    out["lang"] = "zh-CN"
+    return out
+
+
 def _friendly_issue_text(issue: str) -> str:
     text = str(issue or "").strip().lower()
     if "missing target customer" in text:
@@ -175,7 +304,7 @@ def _derive_short_insight(success: bool, near_miss: bool, issues: list[str], wel
     return "Tightening key constraints is the fastest way to improve outcomes."
 
 
-def build_run_task_user_response(result: dict) -> dict:
+def build_run_task_user_response(result: dict, lang: str = "en") -> dict:
     player_result = result.get("player_result", {}) if isinstance(result, dict) else {}
     player_feedback = result.get("player_feedback", {}) if isinstance(result, dict) else {}
     issues = list(player_feedback.get("failure_reasons", []) or [])
@@ -221,7 +350,7 @@ def build_run_task_user_response(result: dict) -> dict:
     charged_cost = float(player_result.get("cost_spent", result.get("total_cost", 0.0)) or 0.0)
     cost_breakdown = _extract_cost_breakdown(result, charged_cost=charged_cost)
 
-    return {
+    payload = {
         "success": success,
         "headline": headline,
         "run_id": str(result.get("storage", {}).get("run_id", "")),
@@ -260,9 +389,10 @@ def build_run_task_user_response(result: dict) -> dict:
             "suggestions": suggestions_from_issues(issues),
         },
     }
+    return _localize_payload(payload, lang)
 
 
-def build_failed_run_task_response(exc: ExecutionError) -> dict:
+def build_failed_run_task_response(exc: ExecutionError, lang: str = "en") -> dict:
     details = dict(exc.details or {})
     run_id = str(details.get("run_id", ""))
     summary = str(exc.message or "Run failed.")
@@ -278,7 +408,7 @@ def build_failed_run_task_response(exc: ExecutionError) -> dict:
         issues = [summary]
     issues = [_friendly_issue_text(item) for item in _compact_failure_reasons(issues)]
     available_balance = float(details.get("available_balance", 0.0) or 0.0)
-    return {
+    payload = {
         "success": False,
         "headline": "Task Failed",
         "run_id": run_id,
@@ -311,3 +441,4 @@ def build_failed_run_task_response(exc: ExecutionError) -> dict:
             "suggestions": suggestions_from_issues([str(exc.code or ""), summary]),
         },
     }
+    return _localize_payload(payload, lang)

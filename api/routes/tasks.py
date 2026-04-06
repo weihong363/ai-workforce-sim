@@ -98,7 +98,7 @@ def get_tasks_route(user_id: str = Query(..., min_length=1, description="Player 
             if not task_id:
                 continue
             payload = _task_to_public(facade, task_id, item)
-            payload["unlock_condition"] = _temp_zh_unlock_condition(str(item.get("unlock_condition", "")))
+            payload["unlock_condition"] = str(item.get("unlock_condition", ""))
             locked_public.append(payload)
         tutorial_completed = not bool(board.get("locked", False))
         return {
@@ -166,7 +166,7 @@ def get_tasks_temp_zh_route(
                 continue
             payload = _task_to_public(facade, task_id, item)
             payload = _overlay_public_text(payload, zh_overlay.get(task_id, {}))
-            payload["unlock_condition"] = str(item.get("unlock_condition", ""))
+            payload["unlock_condition"] = _temp_zh_unlock_condition(str(item.get("unlock_condition", "")))
             locked_public.append(payload)
 
         tutorial_completed = not bool(board.get("locked", False))

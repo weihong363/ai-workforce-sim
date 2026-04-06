@@ -4,6 +4,7 @@ import api.app as app_module
 import api.routes.debug as debug_routes
 import api.routes.game as game_routes
 import api.routes.runs as runs_routes
+import api.routes.tasks as tasks_routes
 import api.routes.users as users_module
 
 
@@ -272,6 +273,83 @@ def test_tasks_endpoint_includes_visible_tasks(monkeypatch) -> None:
     assert data["tasks"][0]["task_id"] == "tsk_tutorial_1_define_the_ta_4e9617a3"
     assert "available" in data
     assert "locked" in data
+
+
+def test_tasks_language_endpoints_unlock_condition(monkeypatch) -> None:
+    task_definitions = {
+        "tsk_tutorial_1": {
+            "is_tutorial": True,
+            "title": "Tutorial",
+            "difficulty": "easy",
+            "cost_estimate": 1.0,
+            "reward": 10.0,
+        }
+    }
+    board = {
+        "locked": True,
+        "available_tasks": [],
+        "locked_tasks": [
+            {"task_id": "tsk_tutorial_1", **task_definitions["tsk_tutorial_1"],
+             "unlock_condition": "Complete tutorial tasks"}
+        ],
+    }
+
+    class _FakeProgression:
+        def list_task_board(self, user_id: str, task_definitions: dict) -> dict:
+            return board
+
+    class _FakeFacade:
+        module_name = "business_sim"
+        progression = _FakeProgression()
+
+        @staticmethod
+        def list_tasks() -> dict:
+            return task_definitions
+
+    monkeypatch.setattr(tasks_routes.ModuleFacade, "from_name", lambda *_a, **_k: _FakeFacade())
+    monkeypatch.setattr(tasks_routes, "build_zh_overlay_by_origin", lambda **_k: {})
+
+    with TestClient(app_module.app) as client:
+        en_resp = client.get("/tasks", params={"user_id": "player_001"})
+        zh_resp = client.get("/tasks-temp-zh", params={"user_id": "player_001"})
+
+    assert en_resp.status_code == 200
+    assert zh_resp.status_code == 200
+    assert en_resp.json()["locked"][0]["unlock_condition"] == "Complete tutorial tasks"
+    assert zh_resp.json()["locked"][0]["unlock_condition"] == "先完成教程任务"
+
+
+def test_run_task_supports_zh_localized_response(monkeypatch) -> None:
+    def fake_run_task(*args, **kwargs):
+        return {
+            "status": "success",
+            "evaluation": {"final_score": 83.0},
+            "total_cost": 1.2,
+            "storage": {"run_id": "run_sync_ok_zh_001"},
+            "player_result": {
+                "success": True,
+                "reward_gained": 12.0,
+                "cost_spent": 1.2,
+                "wallet_before": 100.0,
+                "wallet_after": 110.8,
+                "net_result": 10.8,
+                "explanation": "Task succeeded.",
+            },
+            "player_feedback": {"failure_reasons": []},
+        }
+
+    monkeypatch.setattr(runs_routes, "run_task", fake_run_task)
+
+    with TestClient(app_module.app) as client:
+        response = client.post(
+            "/run-task?lang=zh-CN",
+            json={"task_id": "tsk_assess_a_city_launch_for_d9bbd92d", "user_id": "test_user_sync_zh_001"},
+        )
+    assert response.status_code == 200
+    payload = response.json()
+    assert payload["lang"] == "zh-CN"
+    assert payload["status"] == "成功"
+    assert payload["message"] == "做得很好！"
 
 
 def test_game_start_endpoint(monkeypatch) -> None:

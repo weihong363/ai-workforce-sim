@@ -158,9 +158,13 @@ def test_agent_choices_and_lineup_routes(monkeypatch) -> None:
 
     with TestClient(app_module.app) as client:
         choices = client.get("/agents/choices")
+        choices_zh = client.get("/agents/choices", params={"lang": "zh-CN"})
         lineup = client.post("/agents/users/usr_1/lineup", json={"agent_names": ["operator", "maverick"]})
 
     assert choices.status_code == 200
     assert len(choices.json().get("agents", [])) == 3
+    assert choices_zh.status_code == 200
+    assert choices_zh.json().get("lang") == "zh-CN"
+    assert choices_zh.json().get("agents", [])[0]["name"] == "执行型员工"
     assert lineup.status_code == 200
     assert len(lineup.json().get("lineup", [])) == 2
